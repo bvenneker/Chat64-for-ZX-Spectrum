@@ -1054,6 +1054,8 @@ wifi_setup:                             ;
   CALL PRNTIT                           ;
   ld DE, MLINES_WIFI                    ;
   CALL PRNTIT                           ;
+  ld DE, MLINE_CHANGE                   ;
+  CALL PRNTIT                           ;
   ld DE, MLINE_MAIN7                    ;
   CALL PRNTIT                           ;
   ld DE,WFSSID                          ;
@@ -1061,7 +1063,7 @@ wifi_setup:                             ;
                                         ;
   ld a,(VICEMODE)                       ;
   cp 1                                  ;
-  jp  z,wifi_input_fields               ;
+  jp  z,wifi_edit_or_exit               ;
                                         ;
   ld b,248                              ; ask the wifi connection status
   call send_start_byte_ff               ; after this call, the RXBUFFER contains the connection status
@@ -1116,7 +1118,16 @@ connect_unknown                         ;
   ld a,22 : rst $10                     ;
   ld DE,SPLITBUFFER                     ;
   call PRNTIT                           ;
-                                        ;
+
+wifi_edit_or_exit:
+  call key_input ;                      ; Get last key pressed
+  jp nc,wifi_edit_or_exit               ; If C is clear, keep waiting for key press
+  cp "7"                                ; Key has been pressed
+  jp z, main_menu                                       
+  cp "1"
+  jp z,wifi_input_fields
+  jp wifi_edit_or_exit 
+  
 wifi_input_fields:                      ;
                                         ; input fields
   ld d, 4                               ; set line (or row) for the input field SSID
@@ -1201,7 +1212,9 @@ account_setup:                          ;
   CALL PRNTIT                           ;
   ld DE, ACCOUNTSETUP                   ;
   CALL PRNTIT                           ;
-                                        ;
+  ld a,(VICEMODE)                       ;
+  cp 1                                  ;
+  jp z,account_edit_or_exit
   ld b,243                              ;
   call send_start_byte_ff               ; RXBUFFER now contains macaddress[32]regid[32]nickname[32]regstatus[128]
                                         ;
@@ -1253,7 +1266,17 @@ reg_good                                ;
   ld DE,text_registration_ok            ;
   call PRNTIT                           ;
                                         ;
-                                        ;
+account_edit_or_exit:
+  call key_input ;                      ; Get last key pressed
+  jp nc,account_edit_or_exit               ; If C is clear, keep waiting for key press
+  cp "7"                                ; Key has been pressed
+  jp z, main_menu                                       
+  cp "1"
+  jp z,input_fields
+  cp "6"                                ;
+  jp z, reset_screen                    ;                                           
+  jp account_edit_or_exit
+  
 input_fields                            ;
   ld a,INK : rst $10                    ;
   ld a,5   : rst $10                    ;
@@ -1321,6 +1344,8 @@ server_setup:                           ;
   CALL PRNTIT                           ;
   ld DE, MLINES_SERVER                  ;
   CALL PRNTIT                           ;
+  ld DE, MLINE_CHANGE                   ;
+  CALL PRNTIT                           ;
   ld DE, MLINE_MAIN7                    ;
   CALL PRNTIT                           ;
   ld DE, SERVERSETUP                    ;
@@ -1330,7 +1355,10 @@ server_setup:                           ;
   ld a,8: rst $10                       ;
   ld DE,SERVERNAME                      ;
   CALL PRNTIT                           ;
-                                        ;
+  
+  ld a,(VICEMODE)                       ;
+  cp 1                                  ;
+  jp z, server_edit_or_exit             ;
   ld a,238                              ;
   call sendbyte                         ;
   ld a,250                              ;
@@ -1347,7 +1375,17 @@ server_setup:                           ;
   ld a,0: rst $10                       ;
   ld DE,RXBUFFER                        ;
   CALL PRNTIT                           ;
-                                        ;
+
+server_edit_or_exit:
+  call key_input ;                      ; Get last key pressed
+  jp nc,server_edit_or_exit             ; If C is clear, keep waiting for key press
+  cp "7"                                ; Key has been pressed
+  jp z, main_menu                                       
+  cp "1"
+  jp z,server_input_fields                                          
+  jp account_edit_or_exit
+
+server_input_fields:                    ;
   ld a,INK : rst $10
   ld a,7 : rst $10
   ld d, 4                               ; set line (or row) for the input field Server name
@@ -2651,7 +2689,7 @@ ABOUTPAGE: DB AT,4,0,INK,white,BRIGHT,1,"Initially developed by Bart as a"
   DB "We proudly bring you Chat64 on  ZX Spectrum!",13,13
   DB "Made by Bart Venneker and Theo  van den Belt in 2024"
   DB 13,13,"Hardware, software and manuals  are available on Github"
-  DB 13,13,"github.com/bvenneker/Chat64"
+  DB 13,13,"github.com/bvenneker/Chat64-for-ZX-Spectrum"
   DB AT,21,5,INK,cyan,"[7] Exit to main menu",128
            
 
@@ -2678,8 +2716,10 @@ MLINE_MAIN4:   DB AT, 11,2,INK, cyan, BRIGHT,1,"[4] User List",128
 MLINE_MAIN5:   DB AT, 13,2,INK, cyan, BRIGHT,1,"[5] Help",128
 MLINE_MAIN6:   DB AT, 15,2,INK, cyan, BRIGHT,1,"[6] About this software",128
 MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
-MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings",128
-MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP x.xx  9/24",128
+MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
+MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
+MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP x.xx  "
+VERSION_DATE:  DB "9/24",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
@@ -2693,7 +2733,8 @@ SERVERSETUP: DB AT, 4,1,INK,7,"Server:", AT,6,1,"Example 'www.chat64.nl'", AT,8,
   
 ACCOUNTSETUP: DB AT, 4,1,INK,7,"MAC Address:", AT,6,1,"Reg ID:",AT ,8,1,"Nick Name:", AT,10,0,INK,green;
   BLOCK 32,$90                          ;
-  DB AT, 15,2,INK, cyan, BRIGHT,1,   "[6] Reset to factory defaults",128
+  DB AT, 15,2,INK, cyan, BRIGHT,1,   "[6] Reset to factory defaults"
+  DB AT, 13,2,"[1] Change Settings",128
               
 RESETLINES: DB AT, 1,8,INK,yellow,BRIGHT,1,"RESET CARTRIDGE?"
   DB AT, 5,0,INK, red, BRIGHT,1,"WARNING:", INK,7,"This will reset your    cartridge to factory defaults"
