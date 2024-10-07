@@ -5,13 +5,12 @@
   DEVICE ZXSPECTRUM48                   ;
   org $6000                             ;
                                         ;
- 
+                                        ;
 ;                                       ;
 ; ROM routine addresses                 ;
 ;                                       ;
 ROM_CLS           = $0DAF               ; Clears the screen and opens channel 2
 ROM_OPEN_CHANNEL  = $1601               ; Open a channel
-
 ;                                       ;
 ; PRINT control codes - work with ROM_PRINT and RST 0x10;
 ;                                       ;
@@ -38,12 +37,12 @@ ENTER     = $0D                         ;
                                         ;
                                         ;
 SCREEN_START = $4000                    ;
-SCREEN_SIZE =  $1aff                    ; pixels plus attributes
+SCREEN_SIZE  = $1aff                    ; pixels and attributes
                                         ;
                                         ;
 init:                                   ;  
-
-  
+                                        ;
+                                        ;
   im 1                                  ; interrupt mode 1,Use ROM based interrupt routine
   ei                                    ; enable maskable interrups
                                         ;
@@ -70,12 +69,12 @@ init:                                   ;
   call create_custom_chars2             ;
   call clear_screen                     ; clear the screen. Set paper to Black, INK to white, Bright to 1
   call are_we_in_the_matrix             ;
-  call getstatus
-  ld a, (CONFIGSTATUS)
-  cp 'e'
-  jp z, main_menu
+  call getstatus                        ;
+  ld a, (CONFIGSTATUS)                  ;
+  cp 'e'                                ;
+  jp z, main_menu                       ;
 start:                                  ;
-  LD DE, DLINE                          ; draw the devider line
+  LD DE, DLINE                          ; draw the divider line
   CALL PRNTIT                           ;
   LD DE, MHELPLINE                      ;
   CALL PRNTIT                           ;
@@ -92,7 +91,7 @@ main_chat_function                      ;
   ld (SCREEN_ID),a                      ; ID 1 = public chat, ID 3= private chat
   call cursor_to_line_one               ;
                                         ;
-  call clear_message_lines                                      ;
+  call clear_message_lines              ;
   jp key_loop                           ;
 key_loop:                               ;
                                         ;
@@ -108,8 +107,6 @@ scan_key:                               ;
   jp z,switch_pub_priv                  ;
   cp SYMSHFT_S                          ; If Symbol Shift + S, send the message
   jp z, send_message                    ;
-
-
   cp ENTER                              ;
   jp z,handle_enter                     ; If ENTER code, handle the enter key
   cp DELETE                             ; If Delete key, handle the backspace function
@@ -434,25 +431,24 @@ send_message:                           ;
 sm_is_priv                              ;
   ld b,0                                ;
   ld c,21                               ;
-  ld DE,PMUSER
+  ld DE,PMUSER                          ;
 copy_pmuser                             ; copy the first word (like for example @Eliza ) to the PMUSER variable
-  push DE
-  push BC
+  push DE                               ;
+  push BC                               ;
   call read_from_screen                 ;  
-  pop BC
-  pop DE
-  ld (DE),a
-  cp " "
-  jp z,end_pm_user
-  inc DE
-  inc b
-  jr copy_pmuser
+  pop BC                                ;
+  pop DE                                ;
+  ld (DE),a                             ;
+  cp " "                                ;
+  jp z,end_pm_user                      ;
+  inc DE                                ;
+  inc b                                 ;
+  jr copy_pmuser                        ;
 
 end_pm_user
   inc DE
   ld a," "
   ld (DE),a
-
   inc DE
   ld a,128
   ld (DE),a
@@ -477,7 +473,6 @@ sm_screen_go                            ;
                                         ; read the three message lines and send them to the cartridge
   call sound_click2                     ;
   ld DE, TXBUFFER                       ; read message lines and put it in the buffer
-                                        ;
                                         ;
   ld c,21                               ;
   ld a,0                                ;
@@ -506,7 +501,6 @@ sm_no_change1                           ;
   ld a,b                                ;
   cp 32                                 ;
   jp nz,sm_line1                        ;
-  
   ld a, (SCREEN_ID)                     ; Skip padding the lines to 40 long
   cp 3                                  ; on the private message screen.
   jp z,no_padding                       ; it is not needed..
@@ -653,11 +647,11 @@ goto_new_private_screen:                ;
   call open_channel_top                 ;
   LD DE, MLINES_PRIVATE                 ;
   CALL PRNTIT                           ;
-  LD DE, DLINE                          ; draw the devider line
+  LD DE, DLINE                          ; draw the divider line
   CALL PRNTIT                           ;
   call cursor_to_line_one               ;
   call type_last_PMUSER                 ;
-  jp key_loop                          ;
+  jp key_loop                           ;
 goto_pub:                               ;
   ld a,1                                ;
   ld (SCREEN_ID),a                      ;
@@ -674,7 +668,7 @@ type_last_PMUSER:                       ;
   CALL PRNTIT                                         
   ret
 ; ---------------------------------------------------------------------
-; Open Channel                          ;
+; Open Channel                           
 ; ---------------------------------------------------------------------
 open_channel_top                        ;
   ld a,2                                ; open output channel 2 (top part of the screen)
@@ -974,7 +968,6 @@ scan_update_key                         ;
   jp scan_update_key                 ;
 
 do_update
-  call create_custom_chars3
   call open_channel_top
   ld de,update_bar
   CALL PRNTIT 
@@ -992,49 +985,45 @@ confirm_update                          ;
   jp z,do_update_bar1                   ;
   inc DE                                ;
   jr confirm_update                     ;
-  
-do_update_bar1
+                                        ;
+do_update_bar1                          ;
   ld HL, get_progress                   ; change NMI vector
-  ld ($5CB0),HL                         ;
-  ld a,1
-  ld (LINEPOS),a
-  ld a,INVERSE : rst $10
-  ld a,0 : rst $10
-  
-do_update_bar
-  ld a,AT : rst $10
-  ld a,14 : rst $10
-  ld a,(LINEPOS) : rst $10  
-  ld a,$94 : rst $10
-  
-  ld a,(LINEPOS)
-  cp 29
-  jp z, update_done
-  jp do_update_bar
-  
-  
-  
-exit_main_menu  
-  ld a,0  
-  ld (CHECK_UPDATE),a
-  
-upd_exit  
-  ret
-
-update_done  
-  ld de,text_update_done  
-  CALL PRNTIT
-  jp reset_wait
-  
+  ld ($5CB0),HL                         ; the update procedure uses a different NMI routine
+  ld a,1                                ;
+  ld (LINEPOS),a                        ;
+  ld a,INVERSE : rst $10                ;
+  ld a,0 : rst $10                      ;
+                                        ;
+do_update_bar                           ;
+  ld a,AT : rst $10                     ;
+  ld a,14 : rst $10                     ;
+  ld a,(LINEPOS) : rst $10              ;
+  ld a,$9F : rst $10                    ;
+                                        ;
+  ld a,(LINEPOS)                        ;
+  cp 29                                 ;
+  jp z, update_done                     ;
+  jp do_update_bar                      ;
+                                        ;
+                                        ;
+                                        ;
+exit_main_menu                          ;
+  ld a,0                                ;
+  ld (CHECK_UPDATE),a                   ;
+                                        ;
+upd_exit                                ;
+  ret                                   ;
+                                        ;
+update_done                             ;
+  ld de,text_update_done                ;
+  CALL PRNTIT                           ;
+  jp reset_wait                         ;
+                                        ;
 get_progress                            ; this is the NMI routine when the update runs
-  //ld a,2
-  //ld (LINEPOS),a                        ; it does almost nothing
-  //in a,($00CB)                          ; it gets the new position of the progress bar
-  //and 31
-  ld a,(LINEPOS)
-  inc a
-  ld (LINEPOS),a
-  
+  ld a,(LINEPOS)                        ;
+  inc a                                 ;
+  ld (LINEPOS),a                        ;
+                                        ;
 exit_progres                            ;
   pop iy                                ;
   pop ix                                ;
@@ -1145,9 +1134,9 @@ wifi_input_fields:                      ;
   ld d, 8                               ; set line (or row) for the input field GMT OFFSET
   ld e, 22                              ; set column for the input field
   call input_field                      ;
-  ld a, (ESCAPE)
-  cp 1
-  jp z, main_menu
+  ld a, (ESCAPE)                        ;
+  cp 1                                  ;
+  jp z, main_menu                       ;
   ld DE, MLINE_SAVE                     ;
   CALL PRNTIT                           ;
                                         ;
@@ -1158,7 +1147,7 @@ scan_wifi_menu_key:                     ;
   jp z, main_menu                       ;
   cp 27                                 ; Esc Key (on external keyboard) has been pressed
   jp z, main_menu                       ;
-
+                                        ;
   cp "1"                                ;
   jp z, save_wifi_settings              ;
   jp scan_wifi_menu_key                 ;
@@ -1214,7 +1203,7 @@ account_setup:                          ;
   CALL PRNTIT                           ;
   ld a,(VICEMODE)                       ;
   cp 1                                  ;
-  jp z,account_edit_or_exit
+  jp z,account_edit_or_exit             ;
   ld b,243                              ;
   call send_start_byte_ff               ; RXBUFFER now contains macaddress[32]regid[32]nickname[32]regstatus[128]
                                         ;
@@ -1266,33 +1255,33 @@ reg_good                                ;
   ld DE,text_registration_ok            ;
   call PRNTIT                           ;
                                         ;
-account_edit_or_exit:
+account_edit_or_exit:                   ;
   call key_input ;                      ; Get last key pressed
-  jp nc,account_edit_or_exit               ; If C is clear, keep waiting for key press
+  jp nc,account_edit_or_exit            ; If C is clear, keep waiting for key press
   cp "7"                                ; Key has been pressed
-  jp z, main_menu                                       
-  cp "1"
-  jp z,input_fields
+  jp z, main_menu                       ;                 
+  cp "1"                                ;
+  jp z,input_fields                     ;
   cp "6"                                ;
   jp z, reset_screen                    ;                                           
-  jp account_edit_or_exit
-  
+  jp account_edit_or_exit               ;
+                                        ;
 input_fields                            ;
   ld a,INK : rst $10                    ;
   ld a,5   : rst $10                    ;
   ld d, 6                               ; set line (or row) for the input field registration id
   ld e, 8                               ; set column for the input field
   call input_field                      ;
-  ld a, (ESCAPE)
-  cp 1
-  jp z, main_menu
+  ld a, (ESCAPE)                        ;
+  cp 1                                  ;
+  jp z, main_menu                       ;
   ld d, 8                               ; set line (or row) for the input field nickname
   ld e, 11                              ; set column for the input field
   call input_field                      ;
-  ld a, (ESCAPE)
-  cp 1
-  jp z, main_menu                                        
-  
+  ld a, (ESCAPE)                        ;
+  cp 1                                  ;
+  jp z, main_menu                       ;                  
+                                        ;
 reg_menu                                ;
   ld a,AT :  rst $10                    ;
   ld a,13 :  rst $10                    ;
@@ -1306,8 +1295,7 @@ scan_account_menu_key:                  ;
   cp "7"                                ; Key has been pressed
   jp z, main_menu                       ;
   cp 27                                 ; Esc Key on external keyboard has been pressed
-  jp z, main_menu                       ;
-
+  jp z, main_menu                       ;                               
   cp "1"                                ;
   jp z, save_account_settings           ;
   cp "6"                                ;
@@ -1316,14 +1304,14 @@ scan_account_menu_key:                  ;
                                         ;
 save_account_settings:                  ;
   call sound_click                      ;
-; 240 = C64 sends the new registration id and nickname to ESP32;
+                                        ; 240 = C64 sends the new registration id and nickname to ESP32;
   ld a,240                              ; command byte 240 tells the cartridge we are sending the new registration id and nickname to ESP32
   call sendbyte                         ; send the command byte to the cartridge
-;send_registration_id                   ;
+                                        ; send_registration_id                   
   ld c,6                                ; registration id starts at line 6
   ld b,8                                ; registration id starts at column 8
   call send_out_line                    ;
-;send_nickname                          ;
+                                        ; send_nickname                          
   ld c,8                                ; nickname starts at line 6
   ld b,11                               ; nickname starts at column 11
   call send_out_line                    ;
@@ -1355,7 +1343,7 @@ server_setup:                           ;
   ld a,8: rst $10                       ;
   ld DE,SERVERNAME                      ;
   CALL PRNTIT                           ;
-  
+                                        ;
   ld a,(VICEMODE)                       ;
   cp 1                                  ;
   jp z, server_edit_or_exit             ;
@@ -1375,25 +1363,25 @@ server_setup:                           ;
   ld a,0: rst $10                       ;
   ld DE,RXBUFFER                        ;
   CALL PRNTIT                           ;
-
-server_edit_or_exit:
+                                        ;
+server_edit_or_exit:                    ;
   call key_input ;                      ; Get last key pressed
   jp nc,server_edit_or_exit             ; If C is clear, keep waiting for key press
   cp "7"                                ; Key has been pressed
-  jp z, main_menu                                       
-  cp "1"
-  jp z,server_input_fields                                          
-  jp account_edit_or_exit
-
+  jp z, main_menu                       ;                
+  cp "1"                                ;
+  jp z,server_input_fields              ;                              
+  jp account_edit_or_exit               ;
+                                        ;
 server_input_fields:                    ;
-  ld a,INK : rst $10
-  ld a,7 : rst $10
+  ld a,INK : rst $10                    ;
+  ld a,7 : rst $10                      ; 
   ld d, 4                               ; set line (or row) for the input field Server name
   ld e, 8                               ; set column for the input field
   call input_field                      ;
-  ld a, (ESCAPE)
-  cp 1
-  jp z, main_menu
+  ld a, (ESCAPE)                        ; 
+  cp 1                                  ;
+  jp z, main_menu                       ;
   ld DE, MLINE_SAVE                     ;
   CALL PRNTIT                           ;
                                         ;
@@ -1404,7 +1392,6 @@ scan_server_menu_key:                   ;
   jp z, main_menu                       ;
   cp 27                                 ; Esc Key on external keyboard has been pressed
   jp z, main_menu                       ;
-
   cp "1"                                ;
   jp z, save_server_settings            ;
   jp scan_server_menu_key               ;
@@ -1417,26 +1404,23 @@ save_server_settings:                   ;
 ;send server name                       ;
   ld c,4                                ; server name starts at line 4
   ld b,8                                ; server name starts at column 8
-  ld DE,SERVERNAME
-read_server_name  
-  push bc                               
+  ld DE,SERVERNAME                      ;
+read_server_name                        ;
+  push bc                               ;
   push DE                               ;
   call read_from_screen                 ; character from screen goes into A
-  pop DE
-  ld (DE),a
+  pop DE                                ; 
+  ld (DE),a                             ;
   call sendbyte                         ; Send A to cartridge port
   pop bc                                ;
   inc b                                 ;
-  inc DE
+  inc DE                                ;
   ld a,b                                ;
   cp 33                                 ;
   jp nz,read_server_name                ;
                                         ;
   ld a,128                              ; end the transmission with byte 128
   call sendbyte                         ; Send A to cartridge port
-  
-  
-  
   call delay                            ;
   call delay                            ;                                         
   call delay                            ;
@@ -1514,7 +1498,6 @@ scan_about_keys:                        ;
   jp z, main_menu                       ;
   cp 27                                 ; Esc Key on external keyboard has been pressed
   jp z, main_menu                       ;
-  
   jp z, main_menu                       ;
   jp scan_about_keys                    ;
                                         ;
@@ -1536,10 +1519,8 @@ scan_help_keys:                         ;
   jp nc,scan_help_keys                  ;
   cp "7"                                ;
   jp z, main_menu                       ;
-
   cp 27                                 ; esc key has been pressed on external keyboard
   jp z, main_menu                       ;
-
   jp scan_help_keys                     ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -1560,10 +1541,10 @@ scan_reset_keys:                        ;
   jp main_menu                          ;
                                         ;
 do_reset:                               ;
-  call delay
+  call delay                            ;
   ld a,244                              ;
   call sendbyte                         ;
-  call delay
+  call delay                            ;
   ld DE,text_reset                      ;
 confirm_reset                           ;
   ld a,(DE)                             ;
@@ -1613,7 +1594,7 @@ loop_fc:                                ; loop over the 3 message lines
   djnz loop_fc                          ; decrease B and jump back if not zero
 
 do_fc:                                  ; now calculate the cursor position
-  ld HL, $5A80                          ; start at the start of the devider line
+  ld HL, $5A80                          ; start at the start of the divider line
   ld a, (LINEPOS)                       ; get the line number 1,2 or 3
   ld DE,32                              ; load 32 (length of one line) in DE
 loop2_fc:                               ;
@@ -1911,7 +1892,7 @@ sound_click2:                           ;
   ld HL, 1300                           ;
   call $03B5                            ;
   ret                                   ;
-
+                                        ;
 sound_bell2:                            ;
   ld DE, 30                             ;
   ld HL, 2800                           ;
@@ -1968,24 +1949,17 @@ restore_priv_screen:                    ;
   ldir                                  ; copy bytes, HL= source, DE= Destination, BC=data Length
   ret                                   ;
                                         ;
-create_custom_chars:                    ;
+create_custom_chars:                    ; 
   ld HL,custom_chars                    ;
   ld DE,$FF58                           ;
-  ld BC,8*22                            ;
+  ld BC,8*14                            ;
   LDIR                                  ;
   ret                                   ;
                                         ;
 create_custom_chars2:                   ;  After the start screen we need some other custom chars
   ld HL,custom_chars2                   ;
-  ld DE,$FF58                           ;
-  ld BC,8*11                            ;
-  LDIR                                  ;
-  ret                                   ;
-
-create_custom_chars3:                   ;  After the start screen we need some other custom chars
-  ld HL,custom_chars3                   ;
-  ld DE,$FF58                           ;
-  ld BC,8*9                             ;
+  ld DE,$FF60                           ;
+  ld BC,8*19                            ;
   LDIR                                  ;
   ret                                   ;
                                         ;
@@ -2119,7 +2093,7 @@ as_shift_line_r:                        ;
 delay:                                  ;
   ld a,(DELAY)                          ;
 delay_loop0:                            ;
-  ld b,$FF                              ;
+  ld b,255                              ;
 delay_loop1:                            ;
   djnz delay_loop1                      ;
   dec a                                 ;
@@ -2144,7 +2118,7 @@ wait_for_ready_to_receive:              ;
 rtr_wait_loop                           ;
   in a,($00CB)                          ;
   and %10000000                         ;
-  cp %10000000                          ;
+  cp  %10000000                         ;
   jp nz,rtr_wait_loop                   ;
   pop af                                ;
   ret                                   ;
@@ -2213,12 +2187,12 @@ check_for_messages:                     ;
   ld a, (VICEMODE)                      ;
   cp 1                                  ;
   jp z, ch_exit                         ;
-
+                                        ;
   ld a, ($5c79)                         ; check counter
   cp 1                                  ; if this counter is larger than 1
   jp p,do_check                         ; we check for messages
   ret                                   ;
-
+                                        ;
 do_check                                ;
   ld a, (SCREEN_ID)                     ;
   cp 1                                  ;
@@ -2245,8 +2219,7 @@ no_message                              ;
   ld ($5c79),a                          ;
   ld a,0                                ;
   ld ($5c78),a                          ;
-  
-  call check_for_updates
+  call check_for_updates                ;
                                         ;
   ld a, (SCREEN_ID)                     ; only on public screen
   cp 3                                  ; get the pm count
@@ -2334,21 +2307,20 @@ pm_zero:                                ;
 ; message is in RXBUFFER                ;
 ;----------------------------------------------------------------------
 display_message:                        ;
-
-  ld a, (SCREEN_ID)
-  cp 1
-  jr z, dm_pub_sound
-  
-dm_priv_sound:
-  ld DE, Song_nm
-  call Play
-  jr dm_continue
-dm_pub_sound:
-  ld DE, Song_nm
-  call Play
-
-dm_continue  
-  
+                                        ;
+  ld a, (SCREEN_ID)                     ;
+  cp 1                                  ;
+  jr z, dm_pub_sound                    ;
+                                        ;
+dm_priv_sound:                          ;
+  ld DE, Song_nm                        ;
+  call Play                             ;
+  jr dm_continue                        ;
+dm_pub_sound:                           ;
+  ld DE, Song_nm                        ;
+  call Play                             ;
+                                        ;
+dm_continue                             ;
   ld a,(RXBUFFER)                       ; the first byte in RXBUFFER is the number of lines
 scr_loop                                ;
   push af                               ;
@@ -2383,18 +2355,17 @@ dm_skip                                 ;
 ; This version prevents the user from changing the cursor Mode;
 ; ---------------------------------------------------------------------
 key_input:                              ;
-  
-  ld a, (INKEY)
-  cp 0
-  jr z, key_in
-  push af
-  ld a,0
-  ld (INKEY) ,a
-  pop af
-  SCF
-  ret
-
-key_in  
+  ld a, (INKEY)                         ;
+  cp 0                                  ;
+  jr z, key_in                          ;
+  push af                               ;
+  ld a,0                                ;
+  ld (INKEY) ,a                         ;
+  pop af                                ;
+  SCF                                   ; 
+  ret                                   ;
+                                        ;
+key_in                                  ;
   BIT 3,(IY+$02)                        ; Copy the edit-line or the INPUT-line to the screen if the mode has
   call nz,$111D                         ; changed (bit 3 of TV-FLAG set).
   AND A                                 ; Return with both carry and zero flags reset if no new key has
@@ -2436,53 +2407,42 @@ foundEnd                                ;
 sb_exit                                 ;
   ret                                   ;
                                         ;
-
 ; ---------------------------------------------------------------------
 ; Check for updates                     ;
 ; ---------------------------------------------------------------------
-check_for_updates:
-  ld a, (CHECK_UPDATE)
-  cp 0
-  jr z, cu_exit
-  cp 2
-  jr z, cu_exit
-
-
+check_for_updates:                      ;
+  ld a, (CHECK_UPDATE)                  ;
+  cp 0                                  ;
+  jr z, cu_exit                         ;
+  cp 2                                  ;
+  jr z, cu_exit                         ;
+                                        ;
+                                        ;
   ld b, 239                             ; command code 239 = ask if updates are available
   call send_start_byte_ff               ; after this call, the RXBUFFER contains:
   ld a,(RXBUFFER)                       ; 128 or new version numbers
-  cp 128
-  jr z, cu_exit
+  cp 128                                ;
+  jr z, cu_exit                         ;
   ld HL,RXBUFFER                        ; copy the new versions to the variables
-  ld DE,NEW_ROM
-  inc DE
-  inc DE
-  inc DE
-  inc DE
-  ld BC,4
-  LDIR
-  inc HL
-  ld DE,NEW_ESP
-  inc DE
-  inc DE
-  inc DE
-  inc DE
-  ld BC,4
-  LDIR  
-  call save_cur_pos
-  call scroll_up
-  call scroll_up
-  ld DE, sysmessage_update
-  CALL PRNTIT  
-  ld a, 2
-  ld (CHECK_UPDATE),a
+  ld DE,NEW_ROM                         ;
+  ld BC,4                               ;
+  LDIR                                  ;
+  inc HL                                ;
+  ld DE,NEW_ESP                         ;
+  ld BC,4                               ;
+  LDIR                                  ;
+  call save_cur_pos                     ;
+  call scroll_up                        ; 
+  call scroll_up                        ; 
+  ld DE, sysmessage_update              ;
+  CALL PRNTIT                           ;
+  ld a, 2                               ;
+  ld (CHECK_UPDATE),a                   ;
   ld DE, Song_update                    ;
   call Play                             ;                                      
-
-  call restore_cur_pos
-cu_exit
-  ret
-
+  call restore_cur_pos                  ;
+cu_exit                                 ;
+  ret                                   ;
 
 ; ---------------------------------------------------------------------
 ; wait for any key                      ;
@@ -2562,52 +2522,50 @@ Print_String:                           ;
   JR Print_String                       ; Loop
   ret                                   
   
-  
 ; ---------------------------------------------------------------------
 ; Play Song Routine                           
 ; Point to the sond in DE
 ; ld   DE, Song_2  ; point to the song
 ; ---------------------------------------------------------------------
-  
 Play:
         ld   (ptrSound), DE
 p2
-        ld   hl, (ptrSound)  ; point to the song
-        ld   e, (hl)         ; load frequency in DE
-        inc  hl              ;
-        ld   d, (hl)         ; DE now contains frequency
-        ld   a, d            ;
-        or   e               ; if DE NOT contains $0000, continue    
-        jr   nz, play_cont
-        ret
-
-play_cont
-        inc  hl
-        ld   c, (hl)
-        inc  hl
-        ld   b, (hl)
-        inc  hl
-        ld   (ptrSound), hl
-        ld   h, b
-        ld   l, c  
-        call $03B5  
-        jr p2
+        ld   hl, (ptrSound)             ; point to the song
+        ld   e, (hl)                    ; load frequency in DE
+        inc  hl                         ;
+        ld   d, (hl)                    ; DE now contains frequency
+        ld   a, d                       ;
+        or   e                          ; if DE NOT contains $0000, continue    
+        jr   nz, play_cont              ;
+        ret                             ;
+                                        ;
+play_cont                               ;
+        inc  hl                         ;
+        ld   c, (hl)                    ;
+        inc  hl                         ;
+        ld   b, (hl)                    ;
+        inc  hl                         ;
+        ld   (ptrSound), hl             ;
+        ld   h, b                       ;
+        ld   l, c                       ;
+        call $03B5                      ;
+        jr p2                           ;
 
 ; ---------------------------------------------------------------------
 ; NMI Routine                           ;
 ; ---------------------------------------------------------------------
 nmi_routine:                            ;
   in a, ($00CB)                         ;
-  cp 201
-  jr nz,nmi_no_key
-  ld a,100
-  ld (DELAY),a
-  call delay
+  cp 201                                ;
+  jr nz,nmi_no_key                      ;
+  ld a,100                              ;
+  ld (DELAY),a                          ;
+  call delay                            ;
   in a, ($00CB)                         ;
-  ld (INKEY),a
-  jr exit_nmi
-  
-nmi_no_key
+  ld (INKEY),a                          ;
+  jr exit_nmi                           ;
+                                        ;
+nmi_no_key                              ;
   ld a,(RXINDEX)                        ;
   ld c,a                                ;
   ld b,0                                ;
@@ -2656,9 +2614,9 @@ DLINE: DB AT, 20,0, INK, white, PAPER, 0, BRIGHT,0
   
 MLINES: DB AT,  0,0, INK, green, PAPER, 0, BRIGHT,1
   BLOCK 32,$90                          
-  DB AT,  2,0, INK, green, PAPER, 0, BRIGHT,1
+  DB AT,  2,0  
   BLOCK 32,$90                          
-  DB AT, 20,0, INK, green, PAPER, 0, BRIGHT,1
+  DB AT, 20,0  
   BLOCK 32,$90                          
   DB 128                                
   
@@ -2676,10 +2634,10 @@ MLINES_PRIVATE: DB AT, 0,0,INK,green,BRIGHT,0,PAPER,0,"private messaging        
   DB OVER,0,128
 MLINES_UPDATE:  DB AT, 1,7, INK, yellow,BRIGHT,1,"UPDATE AVAILABLE"
                 DB AT, 5,0,INK,white,BRIGHT,0,"There is a new version availableDo you want to upgrade? ",INK,green,BRIGHT,1,"Y/N"
-                DB AT, 8,0,INK,white,BRIGHT,0,"New ROM version: "
-NEW_ROM:        DB INK,green,BRIGHT,1,"x.xx"                                
-                DB AT, 9,0,INK,white,BRIGHT,0,"New ESP version: "
-NEW_ESP:        DB INK,green,BRIGHT,1,"y.yy"
+                DB AT, 8,0,INK,white,BRIGHT,0,"New ROM version: ",INK,green,BRIGHT,1
+NEW_ROM:        DB "x.xx"                                
+                DB AT, 9,0,INK,white,BRIGHT,0,"New ESP version: ",INK,green,BRIGHT,1
+NEW_ESP:        DB "y.yy"
                 DB 128
                 
                                         
@@ -2707,8 +2665,8 @@ HELPPAGE: DB AT,3,0,INK,red,BRIGHT,1,$91,$92,$93,$94
 
 MHELPLINE: DB AT, 19,0,INK, white,PAPER,0,BRIGHT,1,"Press ",INK,2,$95,$96,$97,$98,INK,white,"+Q for menu";
   DB AT, 18,6,INK,2,$91,$92,$93,$94,128
-    
-              
+
+
 MLINE_MAIN1:   DB AT, 5,2,INK, cyan, BRIGHT,1, "[1] WiFi Setup",128
 MLINE_MAIN2:   DB AT, 7,2,INK, cyan, BRIGHT,1, "[2] Server Setup",128
 MLINE_MAIN3:   DB AT, 9,2,INK, cyan, BRIGHT,1, "[3] Account Setup",128
@@ -2766,16 +2724,15 @@ PM_ERROR2:  DB AT, 3,0,INK,red,BRIGHT,1,PAPER,0,"  Do not send private messages 
   DB 128                                
 
 update_bar: DB AT,11,0,INVERSE,0,PAPER,black,BRIGHT,0,INK,yellow,"Installing new firmware:"                                        
-  DB AT,13,0,BRIGHT,0,INK,white,$95                                        
-  BLOCK 30,$90
-  DB $97,AT,14,0,BRIGHT,0,INK,white,$92,INVERSE,0,"                              ",INVERSE,0,$93
-  DB AT,15,0,BRIGHT,0,INK,white,$96
-  BLOCK 30,$91
-  DB $98,128
+  DB AT,13,0,BRIGHT,0,INK,white,$A0                                        
+  BLOCK 30,$9B
+  DB $A2,AT,14,0,BRIGHT,0,INK,white,$9D,INVERSE,0,"                              ",INVERSE,0,$9E
+  DB AT,15,0,BRIGHT,0,INK,white,$A1
+  BLOCK 30,$9c
+  DB $A3,128
   
 text_update_done: DB AT,17,0,BRIGHT,1,INK,yellow,INVERSE,0,"Update done!",128            
-                                     
-                                        
+                                                                     
 black:   .equ %000000    
 blue:    .equ %000001    
 red:     .equ %000010    
@@ -2795,64 +2752,53 @@ pYellow: .equ yellow  << 3
 pWhite:  .equ white   << 3
 bright:  .equ %1000000   
                                         
-custom_chars: DB 0,0,0,255,255,0,0,0    ; Stripe $90
-  DB 0,127,128,186,162,185,137,185      ; tiles for symbol shift key image $91
-  DB 0,255,0,162,182,42,34,34           ; tiles for symbol shift key image $92
-  DB 0,255,0,196,170,202,170,228        ; tiles for symbol shift key image $93
-  DB 0,240,8,136,136,136,136,232        ; tiles for symbol shift key image $94
-  DB 128,135,132,135,129,135,128,127    ; tiles for symbol shift key image $95
-  DB 0,74,74,122,74,74,0,255            ; tiles for symbol shift key image $96
-  DB 0,238,132,196,132,132,0,255        ; tiles for symbol shift key image $97
-  DB 8,8,8,8,8,8,8,240                  ; tiles for symbol shift key image $98
-                                        ;
-  DB 3, 15, 12, 24, 24, 24, 24, 24      ; boogje links boven $99
-  DB 192, 240, 48, 24, 24, 24, 24, 24   ; boogje rechts boven $9A
-  DB 24, 24, 24, 24, 24, 12, 15, 3      ; boogle links onder  $9B
-  DB 24, 24, 24, 24, 24, 48, 240, 192   ; boogje rechts onder $9C
-  DB 24, 24, 24, 24, 24, 24, 24, 24     ; recht opstaande streep $9D
-  DB 255, 255, 24, 24, 24, 24, 24, 24   ; T stuk $9E
-  DB 24, 24, 24, 31, 31, 24, 24, 24     ; T stuk rechtsaf $9F
-  DB 24, 24, 24, 248, 248, 24, 24, 24   ; T stuk Linksaf $A0
-  DB 255, 255, 0, 0, 0, 0, 0, 0         ; dikke lijn bovenin $A1
-  DB 0, 0, 0, 192, 240, 48, 24, 24      ; boogje mid rechts boven $A2
-  DB 24, 24, 12, 15, 3, 0, 0, 0         ; boogje mid links onder $A3
-  DB 0, 0, 0, 0, 0, 0, 255, 255         ; Dikke streep onder $a4
-                                        ;
-custom_chars2: DB 0,0,0,255,255,0,0,0   ; Stripe $90
-  DB 0,127,128,186,162,185,137,185      ; tiles for symbol shift key image $91
-  DB 0,255,0,162,182,42,34,34           ; tiles for symbol shift key image $92
-  DB 0,255,0,196,170,202,170,228        ; tiles for symbol shift key image $93
-  DB 0,240,8,136,136,136,136,232        ; tiles for symbol shift key image $94
-  DB 128,135,132,135,129,135,128,127    ; tiles for symbol shift key image $95
-  DB 0,74,74,122,74,74,0,255            ; tiles for symbol shift key image $96
-  DB 0,238,132,196,132,132,0,255        ; tiles for symbol shift key image $97
-  DB 8,8,8,8,8,8,8,240                  ; tiles for symbol shift key image $98
-  DB  56, 32, 32, 224, 224, 32, 32, 56  ; -[
-  DB  28, 4, 4, 7, 7, 4, 4, 28          ; ]-
-                                        
-custom_chars3:                                         
-  DB 0, 0, 0, 0, 0, 0, 0, 255               ; onder  $90                                              
-  DB 255,0,0,0,0,0,0,0                      ; boven  $91
-  DB 1,1,1,1,1,1,1,1                        ; links  $92
-  DB 128, 128, 128, 128, 128, 128, 128, 128 ; rechts $93
-  DB 0, 126, 126, 126, 126, 126, 126, 0     ; fill   $94
-  DB 0,0,0,0,0,0,0,1                        ; hoek1 $95
-  DB 1, 0, 0, 0, 0, 0, 0, 0                 ; hoek2 $96
-  DB 0, 0, 0, 0, 0, 0, 0, 128               ; hoek3 $97
-  DB 128, 0, 0, 0, 0, 0, 0, 0               ; hoek2 $98
+custom_chars:                               ; these are only used in the start screen
+  DB 0,0,0,255,255,0,0,0                    ; Stripe $90
+  DB 3, 15, 12, 24, 24, 24, 24, 24          ; boogje links boven $91
+  DB 192, 240, 48, 24, 24, 24, 24, 24       ; boogje rechts boven $92
+  DB 24, 24, 24, 24, 24, 12, 15, 3          ; boogle links onder  $93
+  DB 24, 24, 24, 24, 24, 48, 240, 192       ; boogje rechts onder $94
+  DB 24, 24, 24, 24, 24, 24, 24, 24         ; recht opstaande streep $95
+  DB 255, 255, 24, 24, 24, 24, 24, 24       ; T stuk $96
+  DB 24, 24, 24, 31, 31, 24, 24, 24         ; T stuk rechtsaf $97
+  DB 24, 24, 24, 248, 248, 24, 24, 24       ; T stuk Linksaf $98
+  DB 255, 255, 0, 0, 0, 0, 0, 0             ; dikke lijn bovenin $99
+  DB 0, 0, 0, 192, 240, 48, 24, 24          ; boogje mid rechts boven $9A
+  DB 24, 24, 12, 15, 3, 0, 0, 0             ; boogje mid links onder $9B
+  DB 0, 0, 0, 0, 0, 0, 255, 255             ; Dikke streep onder $9C
+                                            ;
+custom_chars2:                            
+  DB 0,127,128,186,162,185,137,185          ; tiles for symbol shift key image $91
+  DB 0,255,0,162,182,42,34,34               ; tiles for symbol shift key image $92
+  DB 0,255,0,196,170,202,170,228            ; tiles for symbol shift key image $93
+  DB 0,240,8,136,136,136,136,232            ; tiles for symbol shift key image $94
+  DB 128,135,132,135,129,135,128,127        ; tiles for symbol shift key image $95
+  DB 0,74,74,122,74,74,0,255                ; tiles for symbol shift key image $96
+  DB 0,238,132,196,132,132,0,255            ; tiles for symbol shift key image $97
+  DB 8,8,8,8,8,8,8,240                      ; tiles for symbol shift key image $98
+  DB  56, 32, 32, 224, 224, 32, 32, 56      ; -[    $99
+  DB  28, 4, 4, 7, 7, 4, 4, 28              ; ]-    $9a                                                                             
+  DB 0, 0, 0, 0, 0, 0, 0, 255               ; up    $9b                                              
+  DB 255,0,0,0,0,0,0,0                      ; down  $9c
+  DB 1,1,1,1,1,1,1,1                        ; left  $9d
+  DB 128, 128, 128, 128, 128, 128, 128, 128 ; right $9e
+  DB 0, 126, 126, 126, 126, 126, 126, 0     ; fill  $9f
+  DB 0,0,0,0,0,0,0,1                        ; corner pixel1 $a0
+  DB 1, 0, 0, 0, 0, 0, 0, 0                 ; corner pixel2 $a1
+  DB 0, 0, 0, 0, 0, 0, 0, 128               ; corner pixel3 $a2
+  DB 128, 0, 0, 0, 0, 0, 0, 0               ; corner pixel2 $a3
   
                                         
 sc_lines1: DB PAPER,black            
-  DB AT, 14,6,INK,white,BRIGHT,1,"for the ZX Spectrum"
-  DB AT, 16,2,INK,white,BRIGHT,1,"Made by Bart & Theo in 2024"
+  DB AT, 14,6,INK,white,BRIGHT,1,"for the ZX Spectrum",13,13,"  Made by Bart & Theo in 2024"
   DB AT, 1,2,INK,yellow,BRIGHT,0,131,AT,1,9,131,BRIGHT,1,131,BRIGHT,0,131,AT,1,19,131,AT,1,25,131
   DB AT, 2,1,131,BRIGHT,1,131,BRIGHT,0,131,AT,2,10,131,AT,2,18,131,INK,white,131,INK,yellow,131,AT,2,24,131,BRIGHT,1,131,BRIGHT,0,131
-  DB AT, 3,0,131,BRIGHT,1,131,INK,white,131,INK,yellow,131,BRIGHT,0,131, AT,3,14,131,AT,3,19,131,AT,3,25,131,INK,white,131,131,INK,yellow,131
-  DB AT, 4,1,131,BRIGHT,1,131,BRIGHT,0,131, AT,4,13,BRIGHT,0,131,BRIGHT,1,131,BRIGHT,0,131,AT,4,27,INK,yellow,131,INK,white,BRIGHT,1,131,INK,yellow,BRIGHT,0,131
+  DB AT, 3,0,131,131,INK,white,131,INK,yellow,131,BRIGHT,0,131, AT,3,14,131,AT,3,19,131,AT,3,25,131,INK,white,131,131,INK,yellow,131
+  DB AT, 4,1,131,BRIGHT,1,131,BRIGHT,0,131, AT,4,13,131,BRIGHT,1,131,BRIGHT,0,131,AT,4,27,INK,yellow,131,INK,white,BRIGHT,1,131,INK,yellow,BRIGHT,0,131
   DB AT, 5,2,131,AT,5,14,131,AT,5,28,131
-  DB AT, 18,2,131,AT,18,10,131,AT,18,25,BRIGHT,1,131
+  DB AT, 18,2,131,AT,18,10,131,AT,18,25,131
   DB AT, 19,1,BRIGHT,0,131,BRIGHT,1,131,BRIGHT,0,131,AT,19,9,131,BRIGHT,1,131,BRIGHT,0,131,AT,19,18,131,AT,19,24,BRIGHT,1,131,INK,white,131,INK,yellow,131
-  DB AT, 20,2,BRIGHT,0,131,AT, 20,8,INK,yellow,BRIGHT,0,131,BRIGHT,1,131,INK,white,131,INK,yellow,131,BRIGHT,0,131,AT,20,17,131,131,131,AT,20,25,BRIGHT,1,131
+  DB AT, 20,2,BRIGHT,0,131,AT, 20,8,INK,yellow,131,BRIGHT,1,131,INK,white,131,INK,yellow,131,BRIGHT,0,131,AT,20,17,131,131,131,AT,20,25,BRIGHT,1,131
   DB AT, 21,4,BRIGHT,0,131,AT,21,9,131,BRIGHT,1,131,BRIGHT,0,131,AT,21,18,131,AT,0,10,131
   DB 128                                
                                         
@@ -2861,14 +2807,13 @@ sc_lines2: DB PAPER,black,INK,white,BRIGHT,0
   DB AT, 1,4,131,128                                                       
                                         
 sc_big_text: DB AT,8,0,INK,green       
-  DB INK,red,BRIGHT,1,32,32,32,32,$99,$A1,$A1,$9A,$9D,$20,$20,$9D,$99,$A1,$A1,$9A,$A1,$9E,$A1,$20,$99,$A1,$A1,$9A,$9D,13
-  DB INK,red,BRIGHT,0,32,32,32,32,$9D,32,32,32,$9D,32,32,$9D,$9D,32,32,$9D,32,$9D,32,32,$9D,32,32,32,$9D,32,32,$9D,13
-  DB INK,yellow,32,32,32,32,$9D,32,32,32,$9F,$90,$90,$A0,$9F,$90,$90,$A0,32,$9D,32,32,$9F,$90,$90,$A2,$A3,$90,$90,$A0,13
-  DB INK,green,32,32,32,32,$9D,32,32,32,$9D,32,32,$9D,$9D,32,32,$9D,32,$9D,32,32,$9D,32,32,$9D,32,32,32,$9D,13
-  DB INK,cyan,BRIGHT,1,32,32,32,32,$9B,$A4,$A4,$9C,$9D,$20,$20,$9D,$9D,$20,$20,$9D,$20,$9D,32,32,$9B,$A4,$A4,$9C,32,32,32,$9D
+  DB INK,red,BRIGHT,1,32,32,32,32,$91,$99,$99,$92,$95,$20,$20,$95,$91,$99,$99,$92,$99,$96,$99,$20,$91,$99,$99,$92,$95,13
+  DB INK,red,BRIGHT,0,32,32,32,32,$95,32,32,32,$95,32,32,$95,$95,32,32,$95,32,$95,32,32,$95,32,32,32,$95,32,32,$95,13
+  DB INK,yellow,32,32,32,32,$95,32,32,32,$97,$90,$90,$98,$97,$90,$90,$98,32,$95,32,32,$97,$90,$90,$9A,$9B,$90,$90,$98,13
+  DB INK,green,32,32,32,32,$95,32,32,32,$95,32,32,$95,$95,32,32,$95,32,$95,32,32,$95,32,32,$95,32,32,32,$95,13
+  DB INK,cyan,BRIGHT,1,32,32,32,32,$93,$9C,$9C,$94,$95,$20,$20,$95,$95,$20,$20,$95,$20,$95,32,32,$93,$9C,$9C,$94,32,32,32,$95
   DB 128                                
-                                        
-                                        
+                                                                             
 ; Variables                             
 CHECK_UPDATE:    DB 1                          
 LINEPOS:         DB 0                   
@@ -2904,15 +2849,6 @@ PMUSER:          DB "@Eliza ",128,128,128,128,128,128,128,128,128,128
 INKEY:           DB 0               
 ESCAPE:          DB 0              
 
-; -------------------------------------------------------------------
-; ROM beeper routine.
-;
-; Input: HL -> Note.
-;        DE -> Duration.
-;
-; Alters the value of the AF, BC, DE, HL and IX registers.
-; -------------------------------------------------------------------
-BEEP:   EQU $03b5
 
 ; -------------------------------------------------------------------
 ; Notes to be uploaded to HL
@@ -3143,17 +3079,12 @@ Song_nm:  ; Song for new message
   dw D_4_f,D_5,  D_5_f,D_5,  D_4_f,D_4,  G_4_f,G_4,   D_4_f,D_5
   dw $0000
 
-Song_nm2:
-  dw D_5_f,D_5,  D_5_f,D_5,  G_5_f,G_5,  F_5_f,F_5,   Ds_5_f, Ds_5
-  dw $0000
-
 Song_error:
-  //dw G_2_f,G_2,   G_2_f, G_2,  G_2_f,G_2,    Ds_2_f,Ds_2, As_2_f,As_2
-  dw G_4_f,G_2 ,  G_4_f,Fs_2,  G_3_f,E_2,   G_5_f,C_2 
+  dw G_4_f,G_2 ,  G_4_f,Fs_2,  G_3_f,E_2,   G_5_f,C_2
   dw $0000
         
 Song_start:
-  dw C_5_f,C_5//,  B_4_f,B_4,  A_4_f,A_4,  G_5_f,G_5,   D_5_f,D_5
+  dw C_5_f,C_5
   dw C_6_f,C_5,  B_6_f,B_4,  A_6_f,A_4,  G_7_f,G_5,   D_7_f,D_5
   dw $0000
 
@@ -3188,5 +3119,5 @@ TXBUFFER:
 
 ; Deployment: Binfile                   
                                         
-  SAVEBIN "main.bin",init               
-  SAVESNA "load.sna",init               
+  SAVEBIN "main.bin",init      ; this file will be converted into an array and included in the ESP Sketch         
+  SAVESNA "load.sna",init      ; this is just for the emulator.. for testing         
