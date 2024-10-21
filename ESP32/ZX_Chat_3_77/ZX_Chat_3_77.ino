@@ -10,7 +10,7 @@ Preferences settings;
 // About the regID (registration id)
 // A user needs to register at https://www.chat64.nl
 // they will receive a registration_id via email.
-// that number needs to be filled in on the account setup page on the commodore 64
+// that number needs to be filled in on the account setup page on the ZX Spectrum
 // now the cartridge is registered and the administrator has a way to block the user
 // the user can not register again with the same email address if they are blocked
 
@@ -54,7 +54,7 @@ WiFiResponseMessage responseMessage;
 #define oBusNMI GPIO_NUM_32  // non-maskable interrupt signal to Bus
 #define CLED GPIO_NUM_4      // led on cartridge
 #define sclk1 GPIO_NUM_27    // serial clock signal to the shift register
-#define RCLK GPIO_NUM_14  // was 16     // RCLK signal to the 595 shift register
+#define RCLK GPIO_NUM_14     // RCLK signal to the 165 shift register
 #define sclk2 GPIO_NUM_25    // serial clock signal to the shift register
 #define oSdata GPIO_NUM_33
 
@@ -64,7 +64,7 @@ WiFiResponseMessage responseMessage;
 #define resetSwitch GPIO_NUM_15  // this pin outputs PWM signal at boot
 #define BusIO1 GPIO_NUM_22
 #define sdata GPIO_NUM_34
-#define BusIO2 GPIO_NUM_13 // was 17
+#define BusIO2 GPIO_NUM_13  
 
 //IOs for CH9350 used on ESP32
 #define RXKEY GPIO_NUM_16
@@ -77,7 +77,7 @@ USB9350_KeyBoard USBKeyBoard;  //Create an Instance for Keyboard
 // *************************************************
 void IRAM_ATTR isr_io1() {
 
-  // This signal goes LOW when the commodore writes to (or reads from) the IO1 address space
+  // This signal goes LOW when the computer writes to (or reads from) the IO1 address space
   // In our case the ZX Spectrum only WRITES the IO1 address space, so ESP32 can read the data.
   ready_to_receive(false);
   ch = 0;
@@ -89,8 +89,7 @@ void IRAM_ATTR isr_io1() {
 // Interrupt routine for IO2
 // *************************************************
 void IRAM_ATTR isr_io2() {
-  // This signal goes LOW when the commodore reads from (or write to) the IO2 address space
-  // In this case the commodore only uses the IO2 address space to read from, so ESP32 can send data.
+  // This signal goes LOW when the computer uses the output or input command in our address space
   io2 = true;
 }
 
@@ -403,8 +402,8 @@ void loop() {
           if (b == '@') {
             toEncode = "[" + String(translateColor(int(inbuffer[0]))) + "]";
             for (int x = 2; x < 15; x++) {
-              byte b = inbuffer[x];
-              if (b != 32) {
+              byte b = inbuffer[x];              
+              if (b != 32 and b!=',' and b!=':' and b!=';' and b!='.') {
                 if (b < 127) {
                   RecipientName = (RecipientName + char(b));
                 } else {
@@ -431,6 +430,10 @@ void loop() {
           if (RecipientName != "") {
             // is this a valid username?
             String test_name = RecipientName;
+            if (test_name.endsWith(",") or test_name.endsWith(".")){
+                test_name.remove(test_name.length()-1);
+
+            }
             test_name.toLowerCase();
 #ifdef debug
             Serial.print("known users: ");
@@ -447,7 +450,7 @@ void loop() {
 #ifdef debug
               Serial.println("Username not found in list");
 #endif
-              urgentMessage = "[red]System: Unknown user:" + RecipientName;
+              urgentMessage = "System: Unknown user:" + RecipientName;
               send_error = 1;
               break;
             }
@@ -687,7 +690,7 @@ void loop() {
           String ns = bns;
           ns.replace(" ", "");
           romVersion = ns;
-          // respond with byte 128 to tell the commodore the cartridge is present
+          // respond with byte 128 to tell the zxspectrum the cartridge is present
           sendByte(128);
           pastMatrix = true;
           getMessage = true;
@@ -1235,7 +1238,7 @@ void translateZXMessage() {
   int sp = 20 - msgbuffer[0];
   int b = 0;
   int y = 0;
-  int zxColors[] = { 7, 7, 2, 5, 3, 4, 7, 6, 2, 2, 2, 7, 7, 4, 7, 7 };
+  int zxColors[] = { 7, 7, 2, 5, 3, 4, 1, 6, 2, 2, 2, 7, 7, 4, 1, 7 };
 
   // start with number of lines
   outbuffer[0] = msgbuffer[0];

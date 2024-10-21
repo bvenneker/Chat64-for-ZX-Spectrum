@@ -2606,7 +2606,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  DB "3.73",128  
+VERSION:  DB "3.74",128  
 VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
 DLINE: DB AT, 20,0, INK, white, PAPER, 0, BRIGHT,0
   BLOCK 32,$90                          ;
@@ -2628,9 +2628,9 @@ MLINES_ABOUT:   DB AT, 1,9, INK, yellow,BRIGHT,1,"ABOUT CHAT64",128
 MLINES_HELP:    DB AT, 1,13, INK, yellow,BRIGHT,1,"HELP",128
 MLINES_USERS:   DB AT, 1,10, INK, yellow,BRIGHT,1,"USER LIST",128
 MLINES_PRIVATE: DB AT, 0,0,INK,green,BRIGHT,0,PAPER,0,"private messaging               ",AT,1,0;
-  BLOCK 32,$A1
+  BLOCK 32,$9c
   DB AT, 0,0,OVER,1
-  BLOCK 32,$A1
+  BLOCK 32,$9c
   DB OVER,0,128
 MLINES_UPDATE:  DB AT, 1,7, INK, yellow,BRIGHT,1,"UPDATE AVAILABLE"
                 DB AT, 5,0,INK,white,BRIGHT,0,"There is a new version availableDo you want to upgrade? ",INK,green,BRIGHT,1,"Y/N"
