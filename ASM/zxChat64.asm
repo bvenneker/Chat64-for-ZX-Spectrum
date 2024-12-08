@@ -69,7 +69,7 @@ init:                                   ;
   call create_custom_chars2             ;
   call clear_screen                     ; clear the screen. Set paper to Black, INK to white, Bright to 1
   call are_we_in_the_matrix             ;
-  call getstatus                        ;
+  call get_status                        ;
   ld a, (CONFIGSTATUS)                  ;
   cp 'e'                                ;
   jp z, main_menu                       ;
@@ -683,7 +683,7 @@ open_channel_bottom                     ;
 ; ---------------------------------------------------------------------
 ; get the config status, servername and ESP version;
 ; ---------------------------------------------------------------------
-getstatus:                              ;
+get_status:                              ;
   ld a, (VICEMODE)
   cp 1
   jr nz, gs661
@@ -746,7 +746,7 @@ main_menu:                              ;
   jp z,vice1                            ;
 
   call sound_click                      ;
-  call getstatus                        ;
+  call get_status                       ;
   ld a,(CHECK_UPDATE)                   ;
   cp 2
   call z,update_screen
@@ -965,18 +965,18 @@ scan_update_key                         ;
   jr z, exit_main_menu                  ;
   cp "y"                                ;
   jp z, do_update                       ;
-  jp scan_update_key                 ;
-
-do_update
-  call open_channel_top
-  ld de,update_bar
-  CALL PRNTIT 
-  
-  call delay
+  jp scan_update_key                    ;
+                                        ;
+do_update                               ;
+  call open_channel_top                 ; 
+  ld de,update_bar                      ;
+  CALL PRNTIT                           ;
+                                        ;
+  call delay                            ;
   ld a, 232                             ; send the update command
-  call sendbyte
+  call sendbyte                         ;
                                         ; send confirmation
-  call delay
+  call delay                            ;
   ld DE,text_update                     ;  
 confirm_update                          ;
   ld a,(DE)                             ;
@@ -2665,7 +2665,6 @@ HELPPAGE: DB AT,3,0,INK,red,BRIGHT,1,$91,$92,$93,$94
 
 MHELPLINE: DB AT, 19,0,INK, white,PAPER,0,BRIGHT,1,"Press ",INK,2,$95,$96,$97,$98,INK,white,"+Q for menu";
   DB AT, 18,6,INK,2,$91,$92,$93,$94,128
-
 
 MLINE_MAIN1:   DB AT, 5,2,INK, cyan, BRIGHT,1, "[1] WiFi Setup",128
 MLINE_MAIN2:   DB AT, 7,2,INK, cyan, BRIGHT,1, "[2] Server Setup",128

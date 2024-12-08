@@ -453,7 +453,7 @@ void loop() {
 #ifdef debug
               Serial.println("Username not found in list");
 #endif
-              urgentMessage = "System: Unknown user:" + RecipientName;
+              urgentMessage = "[red]System: Unknown user:" + RecipientName;
               send_error = 1;
               break;
             }
@@ -1186,8 +1186,16 @@ void Deserialize() {
 // Send out urgent message if available (error messages)
 // ******************************************************************************
 void doUrgentMessage() {
-  int color = 2;
+  int color = 2; // default color for urgent messages is RED
+  if (urgentMessage.startsWith("[blk]")) color = 7; // black defaults to white
+  if (urgentMessage.startsWith("[blu]")) color = 1;
+  if (urgentMessage.startsWith("[red]")) color = 2;
+  if (urgentMessage.startsWith("[mag]")) color = 3;
   if (urgentMessage.startsWith("[grn]")) color = 4;
+  if (urgentMessage.startsWith("[cya]")) color = 5;
+  if (urgentMessage.startsWith("[yel]")) color = 6;
+  if (urgentMessage.startsWith("[whi]")) color = 7;
+  
 
   if (urgentMessage != "") {
     urgentMessage = "          " + urgentMessage + "  ";
