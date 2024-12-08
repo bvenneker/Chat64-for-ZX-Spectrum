@@ -324,6 +324,7 @@ void loop() {
           // start byte 254 = Computer triggers call to the website for new public message
           // ------------------------------------------------------------------------------
           if (first_check == 0) first_check = millis();
+          pastMatrix=true;
           // send urgent messages first
           doUrgentMessage();
           // if the user list is empty, get the list
@@ -416,16 +417,18 @@ void loop() {
               }
             }
           }
-
+          byte lastb =0;
           for (int x = mstart; x < inbuffersize; x++) {
-            // inbuffer[x] = screenCode_to_Ascii(inbuffer[x]);
             byte b = inbuffer[x];
+            lastb=b;
             if (b > 128) {
               toEncode = (toEncode + "[" + translateColor(int(inbuffer[x])) + "]");
             } else {
+              //if (b==128) b=' ';
               toEncode = (toEncode + inbuffer[x]);
             }
           }
+          if (lastb==128) toEncode.remove(toEncode.length()-1);
 
           if (RecipientName != "") {
             // is this a valid username?
@@ -459,6 +462,8 @@ void loop() {
           }
 
           int buflen = toEncode.length() + 1;
+          if (buflen <= 1) break;
+
           char buff[buflen];
           toEncode.toCharArray(buff, buflen);
           //Serial.print("toEncode=");
@@ -898,6 +903,10 @@ void loop() {
           // Computer asks for user list, second or third page.
           // we send a max of 14 users in one long string
           String ul1 = userPages[userpageCount];
+          //Serial.print("userpage ");
+          //Serial.print(userpageCount);
+          //Serial.print("= ");
+          //Serial.println(ul1);
           ul1.toCharArray(outbuffer, ul1.length() + 1);
           for (int x = 0; x < ul1.length(); x++) {
             if (outbuffer[x] == 130) outbuffer[x] = 0;
@@ -1003,7 +1012,7 @@ void outByte(byte c) {
 void send_String_to_Bus(String s) {
 
   outbuffersize = s.length() + 1;  // set outbuffer size
-  Serial.print("buffersize===");
+  Serial.print("buffersize= ");
   Serial.println(outbuffersize);
   s.toCharArray(outbuffer, outbuffersize);  // place the ssid in the output buffer
   send_out_buffer_to_Bus();                 // and send the buffer
