@@ -428,6 +428,7 @@ void loop() {
               toEncode = (toEncode + inbuffer[x]);
             }
           }
+          mstart=mstart+3;
           if (lastb==128) toEncode.remove(toEncode.length()-1);
 
           if (RecipientName != "") {
@@ -460,15 +461,19 @@ void loop() {
           } else {
             msgtype = "public";
           }
-
+          toEncode.trim();
           int buflen = toEncode.length() + 1;
-          if (buflen <= 1) break;
+          Serial.print("Buffer len=");
+          Serial.println(buflen - mstart);
+          Serial.print("toEncode=");
+          Serial.println(toEncode);
+
+          if (buflen- mstart <= 7) break;   // this is an empty message, do not send it.
 
           char buff[buflen];
           toEncode.toCharArray(buff, buflen);
-          //Serial.print("toEncode=");
-          //Serial.println(toEncode);
 
+          
           String Encoded = my_base64_encode(buff, buflen);
 
           // Now send it with retry!
@@ -491,7 +496,7 @@ void loop() {
           }
           // if it still fails after a few retries, give us an error.
           if (!sc) {
-            urgentMessage = "[red]ERROR: sending the message";
+            urgentMessage = "[yel]ERROR: sending the message";
             send_error = 1;
           } else {
             // No error, read the message back from the database to show it on screen
@@ -1012,8 +1017,8 @@ void outByte(byte c) {
 void send_String_to_Bus(String s) {
 
   outbuffersize = s.length() + 1;  // set outbuffer size
-  Serial.print("buffersize= ");
-  Serial.println(outbuffersize);
+  //Serial.print("buffersize= ");
+  //Serial.println(outbuffersize);
   s.toCharArray(outbuffer, outbuffersize);  // place the ssid in the output buffer
   send_out_buffer_to_Bus();                 // and send the buffer
 }
@@ -1187,14 +1192,14 @@ void Deserialize() {
 // ******************************************************************************
 void doUrgentMessage() {
   int color = 2; // default color for urgent messages is RED
-  if (urgentMessage.startsWith("[blk]")) color = 7; // black defaults to white
-  if (urgentMessage.startsWith("[blu]")) color = 1;
-  if (urgentMessage.startsWith("[red]")) color = 2;
-  if (urgentMessage.startsWith("[mag]")) color = 3;
-  if (urgentMessage.startsWith("[grn]")) color = 4;
-  if (urgentMessage.startsWith("[cya]")) color = 5;
-  if (urgentMessage.startsWith("[yel]")) color = 6;
-  if (urgentMessage.startsWith("[whi]")) color = 7;
+  if (urgentMessage.startsWith("[blk]")) {urgentMessage=urgentMessage.substring(5); color = 7;} // black defaults to white
+  if (urgentMessage.startsWith("[blu]")) {urgentMessage=urgentMessage.substring(5); color = 1;}
+  if (urgentMessage.startsWith("[red]")) {urgentMessage=urgentMessage.substring(5); color = 2;}
+  if (urgentMessage.startsWith("[mag]")) {urgentMessage=urgentMessage.substring(5); color = 3;}
+  if (urgentMessage.startsWith("[grn]")) {urgentMessage=urgentMessage.substring(5); color = 4;}
+  if (urgentMessage.startsWith("[cya]")) {urgentMessage=urgentMessage.substring(5); color = 5;}
+  if (urgentMessage.startsWith("[yel]")) {urgentMessage=urgentMessage.substring(5); color = 6;}
+  if (urgentMessage.startsWith("[whi]")) {urgentMessage=urgentMessage.substring(5); color = 7;}
   
 
   if (urgentMessage != "") {
