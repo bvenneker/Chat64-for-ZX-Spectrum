@@ -273,7 +273,7 @@ void loop() {
     ready_to_receive(false);  // flow controll
 
 #ifdef debug
-    Serial.printf("incomming command: %d\n", ch);
+    //Serial.printf("incomming command: %d\n", ch);
 #endif
 
     //
@@ -463,10 +463,12 @@ void loop() {
           }
           toEncode.trim();
           int buflen = toEncode.length() + 1;
+#ifdef debug
           Serial.print("Buffer len=");
           Serial.println(buflen - mstart);
           Serial.print("toEncode=");
           Serial.println(toEncode);
+#endif
 
           if (buflen- mstart <= 7) break;   // this is an empty message, do not send it.
 
@@ -520,16 +522,22 @@ void loop() {
           ssid = getValue(ns, 129, 0);
 
           ssid.trim();
+#ifdef debug
           Serial.print("SSID=");
           Serial.println(ssid);
+#endif
           password = getValue(ns, 129, 1);
           password.trim();
+#ifdef debug
           Serial.print("PASW=");
           Serial.println(password);
+#endif
           timeoffset = getValue(ns, 129, 2);
           timeoffset.trim();
+#ifdef debug
           Serial.print("GMT+=");
           Serial.println(timeoffset);
+#endif
 
           settings.begin("mysettings", false);
           settings.putString("ssid", ssid);
@@ -815,6 +823,8 @@ void loop() {
           String s = newVersions;
           if (millis() < (first_check + 10000)) s = "";
           send_String_to_Bus(s);
+
+#ifdef debug
           if (s != "") {
             Serial.print("new version available! :");
             Serial.println(newVersions);
@@ -822,6 +832,7 @@ void loop() {
             Serial.print("No update :");
             Serial.println(newVersions);
           }
+#endif
           break;
         }
       case 238:
@@ -864,7 +875,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           
 #ifdef debug
-          //Serial.println("response 236 = " + configured + " " + server + " " + SwVersion);
+          Serial.println("response 236 = " + configured + " " + server + " " + SwVersion);
 #endif
           send_String_to_Bus(configured + char(129) + server + char(129) + SwVersion + char(129));
           break;
@@ -964,10 +975,10 @@ void loop() {
     int key;
     key = USBKeyBoard.GetKey();
     if (key > 0) {
-      Serial.print(key);
-      Serial.print("=");
+      //Serial.print(key);
+      //Serial.print("=");
       key=translateKeystrokes(key);
-      Serial.println(key);
+      //Serial.println(key);
       int chi = Serial.read();
       sendByte(201);       
       delayMicroseconds(1500);       
@@ -1031,12 +1042,16 @@ void send_out_buffer_to_Bus() {
   for (int x = 0; x < outbuffersize - 1; x++) {
     //delayMicroseconds(100);
     sendByte(outbuffer[x]);
+#ifdef debug
     Serial.print(outbuffer[x]);
+#endif
   }
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
+#ifdef debug
   Serial.println();
+#endif
 }
 
 // ******************************************************************************
@@ -1077,7 +1092,9 @@ void receive_buffer_from_Bus(int cnt) {
     ready_to_receive(false);
     dataFromBus = false;
     inbuffer[i] = ch;
+#ifdef debug
     Serial.print(char(ch));
+#endif
     i++;
     if (i > 248) {  //this should never happen
 #ifdef debug
@@ -1091,13 +1108,17 @@ void receive_buffer_from_Bus(int cnt) {
       cnt--;
       inbuffer[i] = 129;
       i++;
+#ifdef debug
       Serial.println();
+#endif
     }
   }
   i--;
   inbuffer[i] = 0;  // close the buffer
   inbuffersize = i;
-  Serial.println();
+#ifdef debug
+      Serial.println();
+#endif
 }
 
 

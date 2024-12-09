@@ -1707,18 +1707,34 @@ PRNTIT:                                 ;
   INC DE                                ; Inc to the next character in the string
   JR PRNTIT                             ; Loop
   ret                                   ;
+
 ; ---------------------------------------------------------------------
 ; Scroll screen up, 1 line              ;
 ; ---------------------------------------------------------------------
 scroll_up:                              ;
-                                        ;
+  ld a,(SCREEN_ID)                      ;
+  cp 3                                  ;
+  jp nz, scroll_first_8                 ; on the private screen we need to
+scroll_first_6                          ; skip the first 2 lines
+  ld a,5                                ; scroll the first 6 lines up
+  ld (TEMPL),a                          ;
+  ld DE,$4040                           ; copy bytes, HL= source, DE= Destination, BC=data Length
+  ld HL,$4060                           ;
+  ld BC,$20                             ;
+  call block_shift                      ;
+
+  
+  jp scroll_second_8
+
+scroll_first_8  
   ld a,8                                ; scroll the first 8 lines up
   ld (TEMPL),a                          ;
   ld DE,$4000                           ; copy bytes, HL= source, DE= Destination, BC=data Length
   ld HL,$4020                           ;
   ld BC,$20                             ;
   call block_shift                      ;
-                                        ;
+
+scroll_second_8
   ld a,8                                ; scroll the next 8 lines up
   ld (TEMPL),a                          ;
   ld DE,$40E0                           ; copy bytes, HL= source, DE= Destination, BC=data Length
@@ -1733,13 +1749,20 @@ scroll_up:                              ;
   ld BC,$20                             ;
   call block_shift                      ;
                                         ;
-                                        ; next we need to shift all attributes up
-                                        ; attributes start at $5800
-  ld DE,$5800                           ;
+  ld a,(SCREEN_ID)                      ; next we need to shift all attributes up
+  cp 1                                  ; 
+  jp z, atr_skip                        ;
+  ld DE,$5840                           ; next we need to shift all attributes up
+  ld HL,$5860                           ; attributes start at $5840 (on the private screen)
+  ld BC,$240                            ;
+  ldir                                  ;
+  jp clear20                            ;
+atr_skip                                ;
+  ld DE,$5800                           ; attributes start at $5800 on the public screen
   ld HL,$5820                           ;
   ld BC,$280                            ;
   ldir                                  ;
-                                        ;
+clear20                                 ;
   ld a,0                                ; clear row 20
   ld b,32                               ;
   ld c,8                                ;
@@ -1877,7 +1900,7 @@ RS_SCR_NXT:                             ;
   djnz RS_SCRN_LP                       ; Loop back for the 96 characters.
   ld C,B                                ; Stack the empty string (length zero).
 RS_SCR_STO:                             ;
-  ret                                   ; return, a holds the character code
+  ret                                   ; return, the accumulator holds the character code
                                         ;
 ; ---------------------------------------------------------------------
 ; sounds, click and bells               ;
@@ -2194,6 +2217,8 @@ check_for_messages:                     ;
   ret                                   ;
                                         ;
 do_check                                ;
+//  call sound_click2
+ 
   ld a, (SCREEN_ID)                     ;
   cp 1                                  ;
   jr z, do_check_pub                    ;
@@ -2217,8 +2242,9 @@ do_check_pub                            ;
 no_message                              ;
   ld a,0                                ; reset the counter
   ld ($5c79),a                          ;
-  ld a,0                                ;
+  ld a,128                              ;
   ld ($5c78),a                          ;
+//  jp ch_exit
   call check_for_updates                ;
                                         ;
   ld a, (SCREEN_ID)                     ; only on public screen
@@ -2335,12 +2361,6 @@ scr_loop                                ;
   ld de,RXBUFFER                        ;
   inc DE                                ; skip the first byte
   call PRNTIT                           ;
-  ld a,(SCREEN_ID)                      ;
-  cp 1                                  ;
-  jp z, dm_skip                         ;
-  LD DE, MLINES_PRIVATE                 ;
-  CALL PRNTIT                           ;
-  jp z, dm_skip                         ;
                                         ;
 dm_skip                                 ;
   call restore_cur_pos                  ; restore cursor position
@@ -2606,8 +2626,9 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  DB "3.74",128  
+VERSION:  DB "3.75",128  
 VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
+
 DLINE: DB AT, 20,0, INK, white, PAPER, 0, BRIGHT,0
   BLOCK 32,$90                          ;
   DB 128                                
@@ -2632,6 +2653,7 @@ MLINES_PRIVATE: DB AT, 0,0,INK,green,BRIGHT,0,PAPER,0,"private messaging        
   DB AT, 0,0,OVER,1
   BLOCK 32,$9c
   DB OVER,0,128
+ 
 MLINES_UPDATE:  DB AT, 1,7, INK, yellow,BRIGHT,1,"UPDATE AVAILABLE"
                 DB AT, 5,0,INK,white,BRIGHT,0,"There is a new version availableDo you want to upgrade? ",INK,green,BRIGHT,1,"Y/N"
                 DB AT, 8,0,INK,white,BRIGHT,0,"New ROM version: ",INK,green,BRIGHT,1
@@ -2676,7 +2698,7 @@ MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
 MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP x.xx  "
-VERSION_DATE:  DB "9/24",128
+VERSION_DATE:  DB AT, 0,27,"12/24",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 

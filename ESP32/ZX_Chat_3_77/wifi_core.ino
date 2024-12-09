@@ -158,7 +158,9 @@ String getUserList(int page) {
 // ****************************************************
 char getRegistrationStatus() {
   String serverName = "http://" + server + "/getRegistration.php";
+#ifdef debug
   Serial.println(serverName);
+#endif
   WiFiClient client;
   HTTPClient http;
   // Connect to configured server
@@ -292,8 +294,10 @@ void WifiCoreLoop(void* parameter) {
           doUpdate();
           break;
         default:
+#ifdef debug
           Serial.print("Invalid Command Message: ");
           Serial.println(commandMessage.command);
+#endif
           break;
       }
     }
@@ -303,7 +307,9 @@ void WifiCoreLoop(void* parameter) {
       myLocalIp="0.0.0.0";
       if (millis() > lastWifiBegin + 7000) {
         lastWifiBegin=millis();
+#ifdef debug
         Serial.print("Connecting to WiFi again");         
+#endif
         WiFi.mode(WIFI_STA);
         WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
         WiFi.begin(ssid, password);  
@@ -357,11 +363,11 @@ void WifiCoreLoop(void* parameter) {
     responseTime = millis() - responseTime;
     if (responseTime > 10000) softReset();
 #ifdef debug
-    Serial.print("http POST took: ");
-    Serial.print(responseTime);
-    Serial.println(" ms.");
-    Serial.print("Response code=");
-    Serial.println(httpResponseCode);
+    //Serial.print("http POST took: ");
+    //Serial.print(responseTime);
+    //Serial.println(" ms.");
+    //Serial.print("Response code=");
+    //Serial.println(httpResponseCode);
 #endif
     if (httpResponseCode == 200) {  // httpResponseCode should be 200
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
