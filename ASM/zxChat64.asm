@@ -2,7 +2,7 @@
 ; character builder: http://www.amelyn.com/speccy_character_builder/;
 ; Rom : https://skoolkid.github.io/rom/maps/all.html;
                                         ;
-  DEVICE ZXSPECTRUM48                   ;
+  DEVICE ZXSPECTRUM128                  ;
   org $6000                             ;
                                         ;
                                         ;
@@ -444,16 +444,16 @@ copy_pmuser                             ; copy the first word (like for example 
   inc DE                                ;
   inc b                                 ;
   jr copy_pmuser                        ;
-
-end_pm_user
-  inc DE
-  ld a," "
-  ld (DE),a
-  inc DE
-  ld a,128
-  ld (DE),a
-  
-sm_is_priv2  
+                                        ;
+end_pm_user                             ;
+  inc DE                                ;
+  ld a," "                              ;
+  ld (DE),a                             ;
+  inc DE                                ;
+  ld a,128                              ;
+  ld (DE),a                             ;
+                                        ;
+sm_is_priv2                             ;
   ld a, (SCREEN_ID)                     ; The message is private. so we should be on screen 3. If not, fix it!
   cp 3                                  ;
   jr z , sm_screen_go                   ; No problem, continue
@@ -601,26 +601,26 @@ clear_message_lines:
   ld a, AT : rst $10                    ; we do not use the rom function to clear the lines
   ld a, 21 : rst $10                    ; because we need to fill them with actual space characters
   ld a, 0: rst $10                      ; otherwise, the flash cursor routine will not work
-  ld a, PAPER : rst $10
-  ld a, 0: rst $10
-  ld a, INK : rst $10
-  ld a, 7: rst $10
-  ld b, 32
-cl_loop1  
-  ld a, ' ': rst $10
+  ld a, PAPER : rst $10                 ;
+  ld a, 0: rst $10                      ;
+  ld a, INK : rst $10                   ;
+  ld a, 7: rst $10                      ;
+  ld b, 32                              ;
+cl_loop1                                ;
+  ld a, ' ': rst $10                    ;
   djnz cl_loop1                         ; decrease B and jump when not zero  
-
-  call open_channel_bottom
-  ld a, AT : rst $10
-  ld a, 0 : rst $10
-  ld a, 0: rst $10
-  ld b, 64
-cl_loop2
-  ld a, ' ': rst $10
+                                        ;
+  call open_channel_bottom              ;
+  ld a, AT : rst $10                    ;
+  ld a, 0 : rst $10                     ;
+  ld a, 0: rst $10                      ;
+  ld b, 64                              ;
+cl_loop2                                ;
+  ld a, ' ': rst $10                    ;
   djnz cl_loop2                         ; decrease B and jump when not zero
-  call cursor_to_line_one
-  ret
-                              ;
+  call cursor_to_line_one               ;
+  ret                                   ;
+                                        ;
 ; ---------------------------------------------------------------------
 ; Switch between public and private messaging;
 ; ---------------------------------------------------------------------
@@ -661,12 +661,12 @@ goto_pub:                               ;
   jp key_loop                           ;
                                         ;
 type_last_PMUSER:                       ;                                                                              
-  ld a, AT : rst $10
-  ld a,21 : rst $10
-  ld a,0 : rst $10
-  ld DE, PMUSER
-  CALL PRNTIT                                         
-  ret
+  ld a, AT : rst $10                    ;
+  ld a,21 : rst $10                     ;
+  ld a,0 : rst $10                      ;
+  ld DE, PMUSER                         ;
+  CALL PRNTIT                           ;               
+  ret                                   ;
 ; ---------------------------------------------------------------------
 ; Open Channel                           
 ; ---------------------------------------------------------------------
@@ -683,14 +683,14 @@ open_channel_bottom                     ;
 ; ---------------------------------------------------------------------
 ; get the config status, servername and ESP version;
 ; ---------------------------------------------------------------------
-get_status:                              ;
-  ld a, (VICEMODE)
-  cp 1
-  jr nz, gs661
-  ld a,'d'
-  ld (CONFIGSTATUS),a
-  ret
-gs661  
+get_status:                             ;
+  ld a, (VICEMODE)                      ;
+  cp 1                                  ;
+  jr nz, gs661                          ;
+  ld a,'d'                              ;
+  ld (CONFIGSTATUS),a                   ;
+  ret                                   ;
+gs661                                   ;
   ld b,236                              ;
   call send_start_byte_ff               ; after this call, the RXBUFFER contains:
                                         ; Configured<byte 129>Server<byte 129>SWVersion<byte 128>
@@ -738,23 +738,17 @@ gs_exit                                 ;
 ; Main Menu                             ;
 ; ---------------------------------------------------------------------
 main_menu:                              ;
-  ld a,0
-  ld (ESCAPE),a
-  
+  ld a,0                                ;
+  ld (ESCAPE),a                         ;
   ld a,(VICEMODE)                       ;
   cp 1                                  ;
   jp z,vice1                            ;
-
   call sound_click                      ;
   call get_status                       ;
   ld a,(CHECK_UPDATE)                   ;
-  cp 2
-  call z,update_screen
-
-
-
-  
-  
+  cp 2                                  ;
+  call z,update_screen                  ;
+                                        ;
 vice1                                   ;
   call clear_screen                     ;
   ld DE,MLINES      : CALL PRNTIT       ;
@@ -890,8 +884,8 @@ if_key_scan:                            ;
   jp nc, if_key_scan                    ;
   cp ENTER                              ;
   jp z, if_exit                         ;
-  cp 27
-  jp z, if_escape
+  cp 27                                 ;
+  jp z, if_escape                       ;
   cp DELETE                             ; If Delete key, handle the backspace function
   jp z,if_backspace                     ;
   cp SPACE                              ;
@@ -927,10 +921,10 @@ if_print:                               ;
 if_not_eol:                             ;
   call flash_cursor_on_input            ;
   ret                                   ;
-
+                                        ;
 if_escape:                              ;
-  ld a, 1
-  ld (ESCAPE),a
+  ld a, 1                               ;
+  ld (ESCAPE),a                         ;
 if_exit:                                ;
   call unflash_cursor_on_input          ;
   ret                                   ;
@@ -938,7 +932,7 @@ if_exit:                                ;
 ; ---------------------------------------------------------------------
 ; Update screen                         ;
 ; ---------------------------------------------------------------------
-update_screen:
+update_screen:                          ;
   call clear_screen                     ;
   ld DE, MLINES                         ;
   CALL PRNTIT                           ;
@@ -1033,7 +1027,6 @@ exit_progres                            ;
   pop af                                ;
   retn                                  ; return from interrupt routine!
                                         ;
-
 ; ---------------------------------------------------------------------
 ; WiFi Setup                            ;
 ; ---------------------------------------------------------------------
@@ -1107,30 +1100,30 @@ connect_unknown                         ;
   ld a,22 : rst $10                     ;
   ld DE,SPLITBUFFER                     ;
   call PRNTIT                           ;
-
-wifi_edit_or_exit:
+                                        ;
+wifi_edit_or_exit:                      ;
   call key_input ;                      ; Get last key pressed
   jp nc,wifi_edit_or_exit               ; If C is clear, keep waiting for key press
   cp "7"                                ; Key has been pressed
-  jp z, main_menu                                       
-  cp "1"
-  jp z,wifi_input_fields
-  jp wifi_edit_or_exit 
-  
+  jp z, main_menu                       ;                
+  cp "1"                                ;
+  jp z,wifi_input_fields                ;
+  jp wifi_edit_or_exit                  ;
+                                        ;
 wifi_input_fields:                      ;
                                         ; input fields
   ld d, 4                               ; set line (or row) for the input field SSID
   ld e, 6                               ; set column for the input field
   call input_field                      ;
-  ld a, (ESCAPE)
-  cp 1
-  jp z, main_menu
+  ld a, (ESCAPE)                        ;
+  cp 1                                  ;
+  jp z, main_menu                       ;
   ld d, 6                               ; set line (or row) for the input field PASSWORD
   ld e, 10                              ; set column for the input field
   call input_field                      ;
-  ld a, (ESCAPE)
-  cp 1
-  jp z, main_menu
+  ld a, (ESCAPE)                        ;
+  cp 1                                  ;
+  jp z, main_menu                       ;
   ld d, 8                               ; set line (or row) for the input field GMT OFFSET
   ld e, 22                              ; set column for the input field
   call input_field                      ;
@@ -1467,7 +1460,6 @@ scan_user_list                          ;
   jp z, main_menu                       ;
   cp 27                                 ; Esc Key on external keyboard  has been pressed
   jp z, main_menu                       ;
-
   cp "n"                                ; go to next page
   jp z, ul_next_page                    ;
   cp "p"                                ;
@@ -1592,7 +1584,7 @@ loop_fc:                                ; loop over the 3 message lines
   ld (DE),a                             ;
   inc DE                                ; increase DE to go to the next address
   djnz loop_fc                          ; decrease B and jump back if not zero
-
+                                        ;
 do_fc:                                  ; now calculate the cursor position
   ld HL, $5A80                          ; start at the start of the divider line
   ld a, (LINEPOS)                       ; get the line number 1,2 or 3
@@ -1722,19 +1714,17 @@ scroll_first_6                          ; skip the first 2 lines
   ld HL,$4060                           ;
   ld BC,$20                             ;
   call block_shift                      ;
-
-  
-  jp scroll_second_8
-
-scroll_first_8  
+  jp scroll_second_8                    ;
+                                        ;
+scroll_first_8                          ;
   ld a,8                                ; scroll the first 8 lines up
   ld (TEMPL),a                          ;
   ld DE,$4000                           ; copy bytes, HL= source, DE= Destination, BC=data Length
   ld HL,$4020                           ;
   ld BC,$20                             ;
   call block_shift                      ;
-
-scroll_second_8
+                                        ;
+scroll_second_8                         ;
   ld a,8                                ; scroll the next 8 lines up
   ld (TEMPL),a                          ;
   ld DE,$40E0                           ; copy bytes, HL= source, DE= Destination, BC=data Length
@@ -2217,8 +2207,6 @@ check_for_messages:                     ;
   ret                                   ;
                                         ;
 do_check                                ;
-//  call sound_click2
- 
   ld a, (SCREEN_ID)                     ;
   cp 1                                  ;
   jr z, do_check_pub                    ;
@@ -2244,7 +2232,6 @@ no_message                              ;
   ld ($5c79),a                          ;
   ld a,128                              ;
   ld ($5c78),a                          ;
-//  jp ch_exit
   call check_for_updates                ;
                                         ;
   ld a, (SCREEN_ID)                     ; only on public screen
@@ -2626,7 +2613,9 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  DB "3.75",128  
+VERSION:  DB "3.75",128  // ALSO CHANGE VERSION IN COMMON.H, 
+                         // AND ALSO CHANGE DATE IF NEEDED
+                           
 VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
 
 DLINE: DB AT, 20,0, INK, white, PAPER, 0, BRIGHT,0

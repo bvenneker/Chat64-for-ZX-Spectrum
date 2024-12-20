@@ -392,7 +392,7 @@ void loop() {
 
           // we expect a chat message from the Computer
           receive_buffer_from_Bus(1);
-
+          int message_length = 0;
           String toEncode = "";
           String RecipientName = "";
           int mstart = 0;
@@ -426,6 +426,7 @@ void loop() {
             } else {
               //if (b==128) b=' ';
               toEncode = (toEncode + inbuffer[x]);
+              if (b>32 and b<127) message_length++;
             }
           }
           mstart=mstart+3;
@@ -463,15 +464,9 @@ void loop() {
           }
           toEncode.trim();
           int buflen = toEncode.length() + 1;
-#ifdef debug
-          Serial.print("Buffer len=");
-          Serial.println(buflen - mstart);
-          Serial.print("toEncode=");
-          Serial.println(toEncode);
-#endif
-
-          if (buflen- mstart <= 7) break;   // this is an empty message, do not send it.
-
+          
+          if (message_length < 1) break;   // this is an empty message, do not send it.
+           
           char buff[buflen];
           toEncode.toCharArray(buff, buflen);
 

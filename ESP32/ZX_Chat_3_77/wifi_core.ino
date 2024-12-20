@@ -425,8 +425,7 @@ String UpdateAvailable(){
 }
 
 void doUpdate(){
-    updateProgress(1);
-     
+    updateProgress(1);     
     NetworkClient client;
     httpUpdate.onStart(update_started);
     httpUpdate.onEnd(update_finished);
@@ -467,7 +466,8 @@ void updateProgress(int p){
 
   // trigger NMI
   digitalWrite(oBusNMI, 1);
-  delayMicroseconds(100); 
+  delayMicroseconds(200); 
   digitalWrite(oBusNMI, 0);
+  delayMicroseconds(200); 
 }
 

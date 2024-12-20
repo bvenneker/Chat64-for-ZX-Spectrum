@@ -3,7 +3,7 @@
 #include "Arduino.h"
 
 #define uromVersion "3.75"
-#define SwVersion "3.81"
+#define SwVersion "3.82"
 
 //#define debug
 #define zxspectrum
