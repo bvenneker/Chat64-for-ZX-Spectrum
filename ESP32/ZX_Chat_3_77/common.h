@@ -5,7 +5,7 @@
 #define uromVersion "3.75"
 #define SwVersion "3.82"
 
-//#define debug
+#define debug
 #define zxspectrum
 
 

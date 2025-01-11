@@ -52,7 +52,8 @@ init:                                   ;
   ld a,($5c3b)                          ; set keyboard mode to L
   or  %00001000                         ;
   ld ($5c3b),a                          ;
-                                        ;
+  ld a, 5                               ; set key repeat speed
+  ld ($5c0a), a                         ; set key repeat speed
   call create_custom_chars              ;
   ld a,0                                ;
   ld (HAVE_PRV_BACKUP),a                ;
@@ -1895,24 +1896,31 @@ RS_SCR_STO:                             ;
 ; ---------------------------------------------------------------------
 ; sounds, click and bells               ;
 ; ---------------------------------------------------------------------
-sound_click:                            ;
-  ld DE, 1                              ;
-  ld HL, 300                            ;
-  call $03B5                            ;
+sound_click:                            ; This code if copied from ROM at 0f3b, part of the editor routine
+  PUSH AF                               ; Save AF temporarily.
+  LD D,$00                              ; Fetch the duration of the keyboard click (PIP)
+  LD E,(IY-$01)                         ; Fetch the duration of the keyboard click
+  LD HL,$00C8                           ; Fetch the Pitch
+  call $03B5                            ; Call beeper
+  POP AF                                ; Restore AF
   ret                                   ;
 sound_click2:                           ;
+  PUSH AF  
   ld DE, 5                              ;
   ld HL, 1300                           ;
   call $03B5                            ;
+  POP AF
   ret                                   ;
                                         ;
 sound_bell2:                            ;
+  PUSH AF
   ld DE, 30                             ;
   ld HL, 2800                           ;
   call $03B5                            ;
   ld DE, 60                             ;
   ld HL, 1800                           ;
   call $03B5                            ;
+  POP AF
   ret                                   ;
 sound_error:                            ;
   ld DE, Song_error                     ;  
@@ -2485,7 +2493,6 @@ Print_Char_L1                           ;
   DJNZ Print_Char_L1                    ; Loop around whilst it is Not Zero (NZ)
   RET                                   ;
                                         ;
-                                        ;
 ; ---------------------------------------------------------------------
 ; Get screen address from a character (X,Y) coordinate;
 ; D = Y character position (0-23)       ;
@@ -2527,16 +2534,16 @@ Print_String:                           ;
   POP DE                                ; Pop screen coordinates
   INC E                                 ; Inc to the next character position on screen
   JR Print_String                       ; Loop
-  ret                                   
-  
+  ret                                   ;
+                                        ;
 ; ---------------------------------------------------------------------
 ; Play Song Routine                           
 ; Point to the sond in DE
 ; ld   DE, Song_2  ; point to the song
 ; ---------------------------------------------------------------------
-Play:
-        ld   (ptrSound), DE
-p2
+Play:                                   ;
+        ld   (ptrSound), DE             ;
+p2                                      ;
         ld   hl, (ptrSound)             ; point to the song
         ld   e, (hl)                    ; load frequency in DE
         inc  hl                         ;
@@ -2557,7 +2564,7 @@ play_cont                               ;
         ld   l, c                       ;
         call $03B5                      ;
         jr p2                           ;
-
+                                        ;
 ; ---------------------------------------------------------------------
 ; NMI Routine                           ;
 ; ---------------------------------------------------------------------
@@ -3111,7 +3118,7 @@ ptrSound:
 
 endofProgram: DB "EOCEOC"  // we need this line for the python script that converts the program to an array.
 
-// Next follow some big blocks of reserved space for backups and buffers
+// Next, some big blocks of reserved space for backups and buffers
 SCREEN_PRIV_BACKUP:
 
   org SCREEN_PRIV_BACKUP + SCREEN_SIZE
