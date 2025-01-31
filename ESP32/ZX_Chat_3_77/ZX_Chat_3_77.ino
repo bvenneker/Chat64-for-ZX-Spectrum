@@ -121,6 +121,7 @@ void create_Task_WifiCore() {
 //  SETUP
 // *************************************************
 void setup() {
+  
   Serial.begin(115200);
   Serial2.begin(115200, SERIAL_8N1, RXKEY, TXKEY);  
   USBKeyBoard.begin(Serial2);
@@ -234,12 +235,8 @@ void setup() {
   settings.putInt("doReset", 0);
   settings.end();
 
-
-
-
   // load the prg file
   if (!pastMatrix) loadPrgfile();
-
   // start wifi
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
@@ -273,7 +270,7 @@ void loop() {
     ready_to_receive(false);  // flow controll
 
 #ifdef debug
-    //Serial.printf("incomming command: %d\n", ch);
+    Serial.printf("incomming command: %d\n", ch);
 #endif
 
     //
@@ -967,19 +964,19 @@ void loop() {
   else {
     // No data from computer bus
 
-    int key;
-    key = USBKeyBoard.GetKey();
-    if (key > 0) {
+ //   int key;
+ //   key = USBKeyBoard.GetKey();
+ //   if (key > 0) {
       //Serial.print(key);
       //Serial.print("=");
-      key=translateKeystrokes(key);
+ //    key=translateKeystrokes(key);
       //Serial.println(key);
-      int chi = Serial.read();
-      sendByte(201);       
-      delayMicroseconds(1500);       
-      outByte(key);
-      while (!io2) {}
-    } 
+ //     int chi = Serial.read();
+ //     sendByte(201);       
+ //     delayMicroseconds(1500);       
+ //     outByte(key);
+ //     while (!io2) {}
+ //   } 
   }
 }  // end of main loop
 

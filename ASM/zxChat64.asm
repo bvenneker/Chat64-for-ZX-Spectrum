@@ -23,8 +23,21 @@ OVER      = $15                         ;
 AT        = $16                         ;
 SYMSHFT_I = $AC                         ;
 SYMSHFT_A = $E2                         ;
+SYMSHFT_W = $C9                         ;
 SYMSHFT_S = $C3                         ;
-                                        ;
+SYMSHFT_Q = $C7                         ;
+ARROWUP   = $5e
+PIPE      = $7c 
+STEP      = $cd 
+BACKSLASH = $5C
+ACCO      = $7B
+ACCC      = $7D
+TO        = $CC
+THEN      = $CB
+AND       = $C6
+OR        = $C5
+BRACO     = $5B
+BRACC     = $5D
 CR        = $0C                         ;
 SPACE     = $20                         ;
 DELETE    = $0C                         ;
@@ -34,30 +47,29 @@ CURSOR_D  = $0A                         ;
 CURSOR_U  = $0B                         ;
 COPYRIGHT = $7F                         ;
 ENTER     = $0D                         ;
-                                        ;
+REPDEL    = $23                         ;
                                         ;
 SCREEN_START = $4000                    ;
 SCREEN_SIZE  = $1aff                    ; pixels and attributes
                                         ;
-                                        ;
 init:                                   ;  
                                         ;
-                                        ;
-  im 1                                  ; interrupt mode 1,Use ROM based interrupt routine
-  ei                                    ; enable maskable interrups
+  im 1                                  ; interrupt mode 1,Use ROM based interrupt routine   
                                         ;
   ld HL, nmi_routine                    ; change NMI vector
   ld ($5CB0),HL                         ;
                                         ;
   ld a,($5c3b)                          ; set keyboard mode to L
   or  %00001000                         ;
+  and %11101111
   ld ($5c3b),a                          ;
-  ld a, 5                               ; set key repeat speed
-  ld ($5c0a), a                         ; set key repeat speed
+  SET 3,(IY+$01)                         ; set keyboard mode to L
+  EI                                    ; enable maskable interrups
   call create_custom_chars              ;
   ld a,0                                ;
   ld (HAVE_PRV_BACKUP),a                ;
   ld (HAVE_PUB_BACKUP),a                ;
+  ld (LASTKEY),a                        ;  
   call $229B                            ; screen border black
   ld a,7                                ;
   ld(INKCOLOR),a                        ;
@@ -70,7 +82,7 @@ init:                                   ;
   call create_custom_chars2             ;
   call clear_screen                     ; clear the screen. Set paper to Black, INK to white, Bright to 1
   call are_we_in_the_matrix             ;
-  call get_status                        ;
+  call get_status                       ;
   ld a, (CONFIGSTATUS)                  ;
   cp 'e'                                ;
   jp z, main_menu                       ;
@@ -106,6 +118,8 @@ scan_key:                               ;
   jp z,do_ink                           ; If Symbol Shift + I, wait for ink color
   cp SYMSHFT_A                          ; If Symbol Shift + A, switch between public and private
   jp z,switch_pub_priv                  ;
+  cp SYMSHFT_W                          ; If Symbol Shift + W, also switch between public and private
+  jp z,switch_pub_priv                  ;
   cp SYMSHFT_S                          ; If Symbol Shift + S, send the message
   jp z, send_message                    ;
   cp ENTER                              ;
@@ -120,8 +134,33 @@ scan_key:                               ;
   jp z, handle_left                     ;
   cp CURSOR_R                           ;
   jp z, handle_right                    ;
-  cp 199                                ; If Symbol Shift + Q
+  cp SYMSHFT_Q                          ; If Symbol Shift + Q
   jp z, exit_to_main_menu               ;
+cp_and                                  ; replace the AND with [
+  cp AND                                ;
+  jp nz, cp_or                          ;
+  ld a, BRACO                           ;
+cp_or                                   ; replace the OR with ]
+  cp OR                                 ;
+  jp nz, cp_then                        ;
+  ld a, BRACC                           ;
+cp_then                                 ; replace THEN with }
+  cp THEN                               ;
+  jp nz,cp_to                           ;
+  ld a, ACCC                            ;
+cp_to                                   ; replace TO with {
+  cp TO                                 ;
+  jp nz,cp_step                         ;
+  ld a, ACCO                            ;
+cp_step                                 ; replace STEP with /
+  cp STEP                               ; 
+  jp nz, cp_arrow_up                    ;
+  ld a,BACKSLASH                        ; 
+cp_arrow_up                             ; replace arrow up with |
+  cp ARROWUP                            ;
+  jp nz, cp_space                       ;
+  ld a, PIPE                            ;
+cp_space                                ;
   cp SPACE                              ;
   jp m,key_loop                         ; If code < space character, ignore
   cp COPYRIGHT+1                        ;
@@ -144,35 +183,40 @@ reset_ink:                              ;
   ld a,7                                ; reset ink to black by "printing" zero
 print:                                  ;
   rst $10                               ; print final code
-  call sound_click                      ;
   jp check_line_end                     ; if we are at the the end of a line, be carefull!
   jp key_loop                           ; loop back to key_loop
                                         ;
                                         ;
 backspace:                              ;
-  call sound_click                      ;
-  call get_cursor_colm                  ;
-  ld a, (COLMPOS)                       ;
-  cp 0                                  ;
-  jp nz , bs_simple                     ;
+  call get_cursor_colm                  ; backspace..
+  ld a, (COLMPOS)                       ; if we are on the very last position
+  cp 31                                 ; on the last line, backspace should also
+  jp nz, check_zero                     ; delete that very last character
+  ld a,(LINEPOS)                        ; 
+  cp 3                                  ;
+  jp nz, check_zero                     ; so on line 3
+  ld a,SPACE    : rst $10               ; put a space on the current position
+  ld a,CURSOR_L : rst $10               ; step back one position and continue with
+check_zero                              ; the normal backspace routine
+  cp 0                                  ; If we are on the left most position
+  jp nz , bs_simple                     ; and on the first position, backspace is not possible
   ld a, 1                               ;
   ld (FROMBS), a                        ;
   jp handle_left                        ;
 bs_simple:                              ;
-  ld a,CURSOR_L : rst $10               ;
-  ld a,SPACE    : rst $10               ;
-  ld a,CURSOR_L : rst $10               ;
+  ld a,CURSOR_L : rst $10               ; backspace meanse stepping left, 
+  ld a,SPACE    : rst $10               ; printing a space,
+  ld a,CURSOR_L : rst $10               ; and stepping left again
   jp key_loop                           ;
                                         ;
 handle_enter:                           ;
-  call sound_click                      ;
   ld a, 1                               ;
   ld (FROMENTER), a                     ;
   ld a,(LINEPOS)                        ; 
-  cp 3                                  ;
-  jp z, send_message                    ;
-  cp 1                                  ;
-  jp z, cursor_to_second_line           ;
+  cp 3                                  ; Enter on the third line causes
+  jp z, send_message                    ; the message to be sent
+  cp 1                                  ; on other lines, we just drop down one line
+  jp z, cursor_to_second_line           ; 
   cp 2                                  ;
   jp z, cursor_to_third_line            ;
   ld a, 0                               ;
@@ -257,7 +301,6 @@ cttl1:                                  ;
   jp key_loop                           ;
                                         ;
 handle_down:                            ;
-  call sound_click                      ;
   ld a,(LINEPOS)                        ;
   cp 1                                  ;
   jp z, cursor_to_second_line           ;
@@ -267,7 +310,6 @@ handle_down:                            ;
                                         ;
                                         ;
 handle_up:                              ;
-  call sound_click                      ;
   ld a,(LINEPOS)                        ;
   cp 1                                  ;
   jp z, key_loop                        ;
@@ -277,7 +319,6 @@ handle_up:                              ;
   jp z, cursor_to_second_line           ;
                                         ;
 handle_right:                           ;
-  call sound_click                      ;
   call get_cursor_colm                  ; get current possition of cursor
   ld a ,(COLMPOS)                       ;
   add 1                                 ; add 1
@@ -332,7 +373,6 @@ right_on_third_line:                    ;
                                         ;
                                         ;
 handle_left:                            ;
-  call sound_click                      ;
   call get_cursor_colm                  ;
   ld a ,(COLMPOS)                       ;
   cp 0                                  ;
@@ -378,7 +418,7 @@ are_we_in_the_matrix:                   ;
                                         ;
   ld a,100                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
+  call jdelay                            ;
                                         ; Send the ROM version to the cartrdige
   ld DE,VERSION                         ;
 sendversion                             ;
@@ -391,7 +431,7 @@ sendversion                             ;
 matrix_n                                ;
   ld a,255                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
+  call jdelay                            ;
                                         ;
   in a,($00CB)                          ;
   cp 128                                ;
@@ -400,7 +440,7 @@ matrix_n                                ;
   ld (VICEMODE),a                       ;
                                         ;
 matrix_exit                             ;
-  call delay                            ;
+  call jdelay                            ;
   ret                                   ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -529,7 +569,7 @@ no_padding
                                         ;
   ld a,100                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
+  call jdelay                            ;
                                         ;
   ld DE,TXBUFFER                        ; send the TXBUFFER
 sm_tx_loop                              ;
@@ -544,12 +584,12 @@ sm_exit                                 ;
   call clear_message_lines              ;
   ld a,250                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
   call do_check                         ; check for messages to get your own message back quick
   ld a, (SCREEN_ID)                     ;
   cp 1                                  ;
@@ -744,7 +784,6 @@ main_menu:                              ;
   ld a,(VICEMODE)                       ;
   cp 1                                  ;
   jp z,vice1                            ;
-  call sound_click                      ;
   call get_status                       ;
   ld a,(CHECK_UPDATE)                   ;
   cp 2                                  ;
@@ -817,7 +856,6 @@ scan_main_menu_key:                     ;
   jp scan_main_menu_key                 ;
                                         ;
 exit_from_main_menu:                    ;
-  call sound_click                      ;
   ld a,(SCREEN_ID)                      ;
   cp 1                                  ;
   jp z,exit_to_pub                      ;
@@ -826,33 +864,26 @@ exit_from_main_menu:                    ;
   jp key_loop                           ;
                                         ;
 exit_to_pub:                            ;
-  call sound_click                      ;
   call restore_pub_screen               ;
   call cursor_to_line_one               ;
   jp key_loop                           ;
                                         ;
 goto_wifi_setup:                        ;
-  call sound_click                      ;
   jp wifi_setup                         ;
                                         ;
 goto_server_setup:                      ;
-  call sound_click                      ;
   jp server_setup                       ;
                                         ;
 goto_account_setup:                     ;
-  call sound_click                      ;
   jp account_setup                      ;
                                         ;
 goto_user_list:                         ;
-  call sound_click                      ;
   jp user_list                          ;
                                         ;
 goto_help_screen:                       ;
-  call sound_click                      ;
   jp help_screen                        ;
                                         ;
 goto_about_screen:                      ;
-  call sound_click                      ;
   jp about_screen                       ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -907,12 +938,10 @@ if_backspace:                           ;
   ld a,32 : rst $10                     ;
   ld a,8  : rst $10                     ;
   call flash_cursor_on_input            ;
-  call sound_click                      ;
   jp if_key_scan                        ;
                                         ;
 if_print:                               ;
   rst $10                               ; print the character
-  call sound_click                      ;
   call get_cursor_colm                  ;
   ld a, (COLMPOS)                       ;
   cp 32                                 ;
@@ -967,11 +996,11 @@ do_update                               ;
   ld de,update_bar                      ;
   CALL PRNTIT                           ;
                                         ;
-  call delay                            ;
+  call jdelay                            ;
   ld a, 232                             ; send the update command
   call sendbyte                         ;
                                         ; send confirmation
-  call delay                            ;
+  call jdelay                            ;
   ld DE,text_update                     ;  
 confirm_update                          ;
   ld a,(DE)                             ;
@@ -1147,7 +1176,6 @@ scan_wifi_menu_key:                     ;
   jp scan_wifi_menu_key                 ;
                                         ;
 save_wifi_settings:                     ;
-  call sound_click                      ;
   ld a,252                              ; command byte 252 tells the cartridge we
                                         ; are sending the wifi credentials
   call sendbyte                         ; send the command byte to the cartridge
@@ -1169,16 +1197,16 @@ save_wifi_settings:                     ;
                                         ;
   ld a,255                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
                                         ;
   jp wifi_setup                         ;
                                         ;
@@ -1297,7 +1325,6 @@ scan_account_menu_key:                  ;
   jp scan_account_menu_key              ;
                                         ;
 save_account_settings:                  ;
-  call sound_click                      ;
                                         ; 240 = C64 sends the new registration id and nickname to ESP32;
   ld a,240                              ; command byte 240 tells the cartridge we are sending the new registration id and nickname to ESP32
   call sendbyte                         ; send the command byte to the cartridge
@@ -1312,9 +1339,9 @@ save_account_settings:                  ;
                                         ;
   ld a,250                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
                                         ;
   jp z, account_setup                   ;
 ; ---------------------------------------------------------------------
@@ -1345,10 +1372,10 @@ server_setup:                           ;
   call sendbyte                         ;
   ld a,250                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
                                         ;
   ld b,237                              ;
   call send_start_byte_ff               ; RXBUFFER now contains the connection status
@@ -1391,7 +1418,6 @@ scan_server_menu_key:                   ;
   jp scan_server_menu_key               ;
                                         ;
 save_server_settings:                   ;
-  call sound_click                      ;
                                         ; 246 = set chatserver ip/fqdn
   ld a,246                              ; command byte 246 tells the cartridge we are sending the new server name to ESP32
   call sendbyte                         ; send the command byte to the cartridge
@@ -1415,14 +1441,14 @@ read_server_name                        ;
                                         ;
   ld a,128                              ; end the transmission with byte 128
   call sendbyte                         ; Send A to cartridge port
-  call delay                            ;
-  call delay                            ;                                         
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
-  call delay                            ;
+  call jdelay                            ;
+  call jdelay                            ;                                         
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
+  call jdelay                            ;
   jp z, server_setup                    ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -1534,10 +1560,10 @@ scan_reset_keys:                        ;
   jp main_menu                          ;
                                         ;
 do_reset:                               ;
-  call delay                            ;
+  call jdelay                            ;
   ld a,244                              ;
   call sendbyte                         ;
-  call delay                            ;
+  call jdelay                            ;
   ld DE,text_reset                      ;
 confirm_reset                           ;
   ld a,(DE)                             ;
@@ -2045,7 +2071,7 @@ sc_wait_for_key:                        ; Wait for a key press
   call animate_stars                    ;
   ld a,80                               ;
   ld (DELAY),a                          ;
-  call delay                            ;
+  call jdelay                            ;
   call key_input                        ; Get last key pressed
   jp nc,sc_wait_for_key                 ; If C is clear, keep waiting for key press
   ld a,0                                ;
@@ -2111,7 +2137,7 @@ as_shift_line_r:                        ;
 ; ---------------------------------------------------------------------
 ; Delay Routine                         ;
 ; ---------------------------------------------------------------------
-delay:                                  ;
+jdelay:                                  ;
   ld a,(DELAY)                          ;
 delay_loop0:                            ;
   ld b,255                              ;
@@ -2121,12 +2147,18 @@ delay_loop1:                            ;
   jp nz,delay_loop0                     ;
   ret                                   ;
                                         ;
+delay2:
+  call jdelay
+  call jdelay
+  call jdelay
+  ret
 ; ---------------------------------------------------------------------
 ;  Send a byte to the cartridge         ;
 ;  byte in A                            ;
 ; ---------------------------------------------------------------------
 sendbyte:                               ;
   call wait_for_ready_to_receive        ; wait for ready to receive
+  
   out ($00CB),a                         ;
   ret                                   ;
                                         ;
@@ -2365,32 +2397,115 @@ dm_skip                                 ;
   ret                                   ;
                                         ;
 ; ---------------------------------------------------------------------
-; Key input routine                     ;
-; This is a very short version of the ROM routine at $10A8;
-; This version prevents the user from changing the cursor Mode;
+; Key input routine                     
+; This is a very short version of the ROM routine at $10A8
+; This version prevents the user from changing the cursor Mode
 ; ---------------------------------------------------------------------
 key_input:                              ;
-  ld a, (INKEY)                         ;
-  cp 0                                  ;
-  jr z, key_in                          ;
-  push af                               ;
-  ld a,0                                ;
-  ld (INKEY) ,a                         ;
-  pop af                                ;
-  SCF                                   ; 
-  ret                                   ;
+  ccf                                   ;
+  ld a, (INKEY)                         ; INKEY is a key we received from an external keyboard
+  cp 0                                  ; see if it is zero
+  jp z, check_MN                        ; if so, scan the internal keyboard
+  push af                               ; if we did get a key from the external keyboard
+  ld a,0                                ; load it into the accumulator
+  ld (INKEY) ,a                         ; 
+  pop af                                ;                                 
+  RET                                   ;  
                                         ;
 key_in                                  ;
-  BIT 3,(IY+$02)                        ; Copy the edit-line or the INPUT-line to the screen if the mode has
-  call nz,$111D                         ; changed (bit 3 of TV-FLAG set).
-  AND A                                 ; Return with both carry and zero flags reset if no new key has
-  BIT 5,(IY+$01)                        ; been pressed (bit 5 of FLAGS reset).
-  RET Z                                 ;
+  BIT 5,(IY+$01)                        ; Return with both carry and zero flags reset if no new key has
+  jr z, exit_key                        ;   
   LD A,($5C08)                          ; Otherwise fetch the code (LAST-K) and signal that it has been
   RES 5,(IY+$01)                        ; taken (reset bit 5 of FLAGS).
+  cp "M"                                ;
+  jp z, exit_key                        ;
+  cp "N"                                ;
+  jp z, exit_key                        ;
+  call sound_click                      ;
+  PUSH AF                               ;
+  ld a,0                                ;
+  ld(LASTM),a                           ; 
+  ld(LASTN),a                           ;
+  POP AF                                ;
   SCF                                   ; Show a code has been found and return.
   RET                                   ;
+exit_key                                ; 
+  RET                                   ;
                                         ;
+check_MN:                               ; This is to work around a bug in 128 machines                                        
+  LD BC, $FEFE                          ; running in 48k mode, M and N respond intermittent to key strokes
+  IN A,(C)                              ; 
+  AND 31                                ;
+  CP 30                                 ; is shift pressed?
+  jp z, checkM                          ; yes, check M key
+  jp key_in                             ; return                                           
+                                        ;
+checkM:                                 ; This is to work around a bug in 128 machines 
+  ld BC, $7FFE                          ; running in 48k mode, M and N respond intermittent to key strokes
+  IN A,(C)                              ;
+  AND 31                                ;
+  CP 27                                 ;
+  jp nz, checkN                         ;  
+  ld a,(LASTM)                          ;
+  cp 1                                  ;
+  jp z, release_m                       ;
+  ld a,1                                ;
+  ld (LASTM),a                          ;
+  call sound_click                      ;
+  ld a,"M"                              ;
+  RES 5,(IY+$01)                        ;
+  SCF                                   ;
+  RET                                   ;
+                                        ;
+release_m:                              ; This is to work around a bug in 128 machines 
+  ld a,0                                ; running in 48k mode, M and N respond intermittent to key strokes
+  ld(LASTM),a                           ;
+  ld BC, $7FFE                          ;
+  IN A,(C)                              ;
+  AND 31                                ;
+  CP 27                                 ; 
+  jp z, release_m                       ;
+  ld a,100                              ;
+  ld (DELAY),a                          ;
+  CALL jdelay                           ;
+  ld a,0                                ;
+  ccf                                   ;
+  RET                                   ;
+                                        ;
+checkN:                                 ; This is to work around a bug in 128 machines 
+  ld BC, $7FFE                          ; running in 48k mode, M and N respond intermittent to key strokes
+  IN A,(C)                              ;
+  AND 31                                ;
+  CP 23                                 ;
+  jp nz, key_in                         ;  
+  ld a,(LASTN)                          ;
+  cp 1                                  ;
+  jp z , release_N                      ;
+  ld a,1                                ;
+  ld (LASTN),a                          ;
+  call sound_click                      ;
+  ld a,"N"                              ;
+  RES 5,(IY+$01)                        ;
+  SCF                                   ;
+  RET                                   ;
+                                        ;
+release_N:                              ; This is to work around a bug in 128 machines 
+  ld a,0                                ; running in 48k mode, M and N respond intermittent to key strokes
+  ld(LASTN),a                           ;
+  ld BC, $7FFE                          ;
+  IN A,(C)                              ;
+  AND 31                                ;
+  CP 23                                 ;
+  jp z, release_N                       ; 
+  ld a,100                              ;
+  ld (DELAY),a                          ;
+  CALL jdelay                           ;
+  ld a,0                                ;
+  ccf                                   ;
+  RET                                   ;
+                                        ;
+LASTM: DB 0                             ;
+LASTN: DB 0                             ;
 ; ---------------------------------------------------------------------
 ; SUB ROUTINE TO SPLIT RXBUFFER         ;
 ; A = element to keep                   ;
@@ -2574,7 +2689,7 @@ nmi_routine:                            ;
   jr nz,nmi_no_key                      ;
   ld a,100                              ;
   ld (DELAY),a                          ;
-  call delay                            ;
+  call jdelay                            ;
   in a, ($00CB)                         ;
   ld (INKEY),a                          ;
   jr exit_nmi                           ;
@@ -2620,7 +2735,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  DB "3.75",128  // ALSO CHANGE VERSION IN COMMON.H, 
+VERSION:  .BYTE "3.77",128  // ALSO CHANGE VERSION IN COMMON.H, 
                          // AND ALSO CHANGE DATE IF NEEDED
                            
 VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
@@ -2676,7 +2791,7 @@ HELPPAGE: DB AT,3,0,INK,red,BRIGHT,1,$91,$92,$93,$94
   DB AT,7,0,INK,red,BRIGHT,1,$91,$92,$93,$94
   DB INK,white,BRIGHT,1,"+ S = Send message",13,INK,red,BRIGHT,1,$95,$96,$97,$98,INK,white,BRIGHT,1,"      or enter on third line"
   DB AT,9,0,INK,red,BRIGHT,1,$91,$92,$93,$94
-  DB INK,white,BRIGHT,1,"+ A = Toggle between Public",13,INK,red,BRIGHT,1,$95,$96,$97,$98,INK,white,BRIGHT,1,"      and Private messages"
+  DB INK,white,BRIGHT,1,"+ W = Toggle between Public",13,INK,red,BRIGHT,1,$95,$96,$97,$98,INK,white,BRIGHT,1,"      and Private messages"
   DB 13,13,"In private mode, start your message with @Username to send a message to that user"
   DB 13,13,"Start your message with",INK,red," @Eliza  ",INK,white,"to chat with our I.A. Chatbot"
   DB AT,21,5,INK,cyan,"[7] Exit to main menu",128
@@ -2694,7 +2809,7 @@ MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
 MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP x.xx  "
-VERSION_DATE:  DB AT, 0,27,"12/24",128
+VERSION_DATE:  DB AT, 0,27,"01/25",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
@@ -2830,8 +2945,52 @@ sc_big_text: DB AT,8,0,INK,green
   DB INK,green,32,32,32,32,$95,32,32,32,$95,32,32,$95,$95,32,32,$95,32,$95,32,32,$95,32,32,$95,32,32,32,$95,13
   DB INK,cyan,BRIGHT,1,32,32,32,32,$93,$9C,$9C,$94,$95,$20,$20,$95,$95,$20,$20,$95,$20,$95,32,32,$93,$9C,$9C,$94,32,32,32,$95
   DB 128                                
+
+key2ascii: 
+  DB ".",0,0,0,0,0,0,0,0          ;   0 -   8
+  DB 0,"V",0,0,0,0,"v",0          ;   9 -  16
+  DB 0,"C",0,47,0,"X","c","Z"     ;  17 -  24
+  DB 0,0,"x","?","z",0,0,"#"      ;  25 -  32
+  DB "?",":",0,0,$60,0,":",0      ;  33 -  40
+  DB 0,"G",0,0,0,0,"g",0          ;  41 -  48
+  DB 0,"F",0,"]",0,"D","f","S"    ;  49 -  56
+  DB "A",0,"d","[","s","a",0,92   ;  57 -  64
+  DB 0,$C3,$E2,0,0,0,0,0          ;  65 -  72
+  DB 0,"T",0,0,0,0,"t",0          ;  73 -  80
+  DB 0,"R",0,">",0,"E","r","W"    ;  81 -  88
+  DB "Q",0,"e","<","w","q",0,0    ;  82 -  96
+  DB 0,0,$C7,0,0,0,0,0            ;  97 - 104 
+  DB 0,$08,0,0,0,0,"5",0          ; 105 - 112
+  DB 0,"$",0,"%",0,"#","4","@"    ; 113 - 120
+  DB "!",0,"3","$","2","1",0,"#"  ; 121 - 128
+  DB 0,"@","!",0,0,0,0,0          ; 129 - 136
+  DB 0,$0A,0,0,0,0,"6",0          ; 137 - 144
+  DB 0,$0B,0,"&",0,$09,"7",0      ; 145 - 152
+  DB $0C,0,"8","'","9","0",0,"("  ; 153 - 160
+  DB 0,")","_",0,0,0,0,0          ; 161 - 168
+  DB 0,"Y",0,0,0,0,"y",0          ; 169 - 176
+  DB 0,"U",0,"[",0,"I","u","O"    ; 177 - 184
+  DB "P",0,"i","]","o","p",0,$AC  ; 185 - 192
+  DB 0,";",$22,0,0,0,0,0          ; 193 - 200
+  DB 0,"H",0,0,0,0,"h",0          ; 201 - 208
+  DB 0,"J",0,"|",0,"K","j","L"    ; 209 - 216
+  DB $C3,0,"k","-","l",13,0,"+"   ; 217 - 224
+  DB 0,"=",$C3,0,"B",0,0,0        ; 225 - 232
+  DB 0,"B",0,0,0,0,"b",0          ; 233 - 240
+  DB 0,"N",0,"*",0,"M","n",0      ; 241 - 248
+  DB 0,0,"m",",",0,32,0           ; 249 - 255
+
+;SYMSHFT_I = $AC                         
+;SYMSHFT_A = $E2                         
+;SYMSHFT_S = $C3                                                                                                     
+;SYMSHFT_Q = $C7                                                                          
+
+
+
+
                                                                              
 ; Variables                             
+LASTKEY:         DB 0
 CHECK_UPDATE:    DB 1                          
 LINEPOS:         DB 0                   
 COLMPOS:         DB 0                   

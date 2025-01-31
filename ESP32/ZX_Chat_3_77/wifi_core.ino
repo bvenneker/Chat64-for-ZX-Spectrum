@@ -308,7 +308,7 @@ void WifiCoreLoop(void* parameter) {
       if (millis() > lastWifiBegin + 7000) {
         lastWifiBegin=millis();
 #ifdef debug
-        Serial.print("Connecting to WiFi again");         
+        Serial.println("Connecting to WiFi again");         
 #endif
         WiFi.mode(WIFI_STA);
         WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
