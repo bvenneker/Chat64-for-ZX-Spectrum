@@ -2437,10 +2437,11 @@ check_MN:                               ; This is to work around a bug in 128 ma
   IN A,(C)                              ; 
   AND 31                                ;
   CP 30                                 ; is shift pressed?
-  jp z, checkM                          ; yes, check M key
-  jp key_in                             ; return                                           
+  jp z,checkM                           ; yes?, check M key  
+  ld a,0                                ; clear a
+  jp key_in                             ; no? , return                                           
                                         ;
-checkM:                                 ; This is to work around a bug in 128 machines 
+checkM:                                 ; This is to work around a bug in 128 machines   
   ld BC, $7FFE                          ; running in 48k mode, M and N respond intermittent to key strokes
   IN A,(C)                              ;
   AND 31                                ;
@@ -2735,7 +2736,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  .BYTE "3.77",128  // ALSO CHANGE VERSION IN COMMON.H, 
+VERSION:  .BYTE "3.78",128  // ALSO CHANGE VERSION IN COMMON.H, 
                          // AND ALSO CHANGE DATE IF NEEDED
                            
 VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
