@@ -76,17 +76,18 @@ init:                                   ;
                                         ;
   call open_channel_top                 ;
   call ROM_CLS                          ;
-  ld a, black | white                   ; clear the screen. Set paper to Black, INK to white, NOT Bright
+  ld a, black | white                   ; clear the screen. Set paper to Black, INK to white,  
   call cls_attributes                   ;
   call start_screen                     ;
   call create_custom_chars2             ;
-  call clear_screen                     ; clear the screen. Set paper to Black, INK to white, Bright to 1
+  call clear_screen                     ; clear the screen. Set paper to Black, INK to white,  
   call are_we_in_the_matrix             ;
   call get_status                       ;
   ld a, (CONFIGSTATUS)                  ;
   cp 'e'                                ;
-  jp z, main_menu                       ;
+  jp z, first_main_menu                 ;
 start:                                  ;
+  call clear_screen
   LD DE, DLINE                          ; draw the divider line
   CALL PRNTIT                           ;
   LD DE, MHELPLINE                      ;
@@ -778,6 +779,9 @@ gs_exit                                 ;
 ; ---------------------------------------------------------------------
 ; Main Menu                             ;
 ; ---------------------------------------------------------------------
+first_main_menu:  
+  ld a,9                                ;
+  ld (SCREEN_ID),a 
 main_menu:                              ;
   ld a,0                                ;
   ld (ESCAPE),a                         ;
@@ -799,8 +803,6 @@ vice1                                   ;
   cp 'e'                                ; empty
   jp z, skip1                           ;
                                         ;
-  ld DE,MLINE_MAIN2 : CALL PRNTIT  ;    ; server setup
-                                        ;
   ld a, (CONFIGSTATUS)                  ;
   cp 'w'                                ; server done
   jp z, skip1                           ;
@@ -810,6 +812,7 @@ vice1                                   ;
   ld a, (CONFIGSTATUS)                  ;
   cp 's'                                ; registration done
   jp z, skip1                           ;
+  ld DE,MLINE_MAIN2 : CALL PRNTIT  ;    ; server setup
                                         ;
                                         ;
   ld DE,MLINE_MAIN4 : CALL PRNTIT  ;    ; user list
@@ -857,6 +860,8 @@ scan_main_menu_key:                     ;
                                         ;
 exit_from_main_menu:                    ;
   ld a,(SCREEN_ID)                      ;
+  cp 9
+  jp z, start
   cp 1                                  ;
   jp z,exit_to_pub                      ;
   call restore_priv_screen              ;

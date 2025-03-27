@@ -580,9 +580,9 @@ void loop() {
             String wifi_status = "Connected, ip: " + myLocalIp;
             send_String_to_Bus(wifi_status);
             if (configured == "empty") {
-              configured = "w";
+              configured = "s";
               settings.begin("mysettings", false);
-              settings.putString("configured", "w");
+              settings.putString("configured", "s");
               settings.end();
             }
           }
@@ -727,7 +727,7 @@ void loop() {
             settings.putString("myNickName", "empty");
             settings.putString("ssid", "empty");
             settings.putString("password", "empty");
-            settings.putString("server", "empty");
+            settings.putString("server", "www.chat64.nl");
             settings.putString("configured", "empty");
             settings.putString("timeoffset", "+0");
             settings.end();
