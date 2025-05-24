@@ -51,6 +51,9 @@ REPDEL    = $23                         ;
                                         ;
 SCREEN_START = $4000                    ;
 SCREEN_SIZE  = $1aff                    ; pixels and attributes
+CARTRIDGE_IO = $00FB                    ; IO port address for the cartridge  (11111011, A2 is low)
+PRINTER_IO   = $00F7                    ; IO port address for the ZX Printer (11110111, A3 is low)
+                                        ;
                                         ;
 init:                                   ;  
                                         ;
@@ -419,7 +422,7 @@ are_we_in_the_matrix:                   ;
                                         ;
   ld a,100                              ;
   ld (DELAY),a                          ;
-  call jdelay                            ;
+  call jdelay                           ;
                                         ; Send the ROM version to the cartrdige
   ld DE,VERSION                         ;
 sendversion                             ;
@@ -432,16 +435,16 @@ sendversion                             ;
 matrix_n                                ;
   ld a,255                              ;
   ld (DELAY),a                          ;
-  call jdelay                            ;
+  call jdelay                           ;
                                         ;
-  in a,($00CB)                          ;
+  in a,(CARTRIDGE_IO)                   ;
   cp 128                                ;
   jp z, matrix_exit                     ;
   ld a,1                                ;
   ld (VICEMODE),a                       ;
                                         ;
 matrix_exit                             ;
-  call jdelay                            ;
+  call jdelay                           ;
   ret                                   ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -2164,7 +2167,7 @@ delay2:
 sendbyte:                               ;
   call wait_for_ready_to_receive        ; wait for ready to receive
   
-  out ($00CB),a                         ;
+  out (CARTRIDGE_IO),a                  ;
   ret                                   ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -2174,7 +2177,7 @@ sendbyte:                               ;
 wait_for_ready_to_receive:              ;
   push af                               ;
 rtr_wait_loop                           ;
-  in a,($00CB)                          ;
+  in a,(CARTRIDGE_IO)                   ;
   and %10000000                         ;
   cp  %10000000                         ;
   jp nz,rtr_wait_loop                   ;
@@ -2690,13 +2693,13 @@ play_cont                               ;
 ; NMI Routine                           ;
 ; ---------------------------------------------------------------------
 nmi_routine:                            ;
-  in a, ($00CB)                         ;
+  in a, (CARTRIDGE_IO)                  ;
   cp 201                                ;
   jr nz,nmi_no_key                      ;
   ld a,100                              ;
   ld (DELAY),a                          ;
-  call jdelay                            ;
-  in a, ($00CB)                         ;
+  call jdelay                           ;
+  in a, (CARTRIDGE_IO)                  ;
   ld (INKEY),a                          ;
   jr exit_nmi                           ;
                                         ;
@@ -2707,7 +2710,7 @@ nmi_no_key                              ;
   ld de, RXBUFFER                       ;
   add de,bc                             ;
                                         ;
-  in a,($00CB)                          ; read a byte from the cartridge
+  in a,(CARTRIDGE_IO)                  ; read a byte from the cartridge
                                         ;
   ld (de),a                             ;
   cp 128                                ;
