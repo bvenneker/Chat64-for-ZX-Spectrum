@@ -806,16 +806,17 @@ vice1                                   ;
   cp 'e'                                ; empty
   jp z, skip1                           ;
                                         ;
+  ld DE,MLINE_MAIN2 : CALL PRNTIT  ;    ; account setup
   ld a, (CONFIGSTATUS)                  ;
-  cp 'w'                                ; server done
+  cp 's'                                ; server done
   jp z, skip1                           ;
                                         ;
-  ld DE,MLINE_MAIN3 : CALL PRNTIT  ;    ; account setup
+  
                                         ;
-  ld a, (CONFIGSTATUS)                  ;
-  cp 's'                                ; registration done
-  jp z, skip1                           ;
-  ld DE,MLINE_MAIN2 : CALL PRNTIT  ;    ; server setup
+;  ld a, (CONFIGSTATUS)                  ;
+;  cp 's'                                ; registration done
+;  jp z, skip1                           ;
+  ld DE,MLINE_MAIN3 : CALL PRNTIT  ;    ; server setup
                                         ;
                                         ;
   ld DE,MLINE_MAIN4 : CALL PRNTIT  ;    ; user list
@@ -850,9 +851,9 @@ scan_main_menu_key:                     ;
   cp "1"                                ;
   jp z, goto_wifi_setup                 ;
   cp "2"                                ;
-  jp z, goto_server_setup               ;
-  cp "3"                                ;
   jp z, goto_account_setup              ;
+  cp "3"                                ;
+  jp z, goto_server_setup               ;
   cp "4"                                ;
   jp z, goto_user_list                  ;
   cp "5"                                ;
@@ -1205,16 +1206,18 @@ save_wifi_settings:                     ;
                                         ;
   ld a,255                              ;
   ld (DELAY),a                          ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
+  call jdelay                           ;
                                         ;
   jp wifi_setup                         ;
                                         ;
@@ -1276,7 +1279,7 @@ account_setup:                          ;
 unreg                                   ;
   ld DE,text_unreg_error                ;
   call PRNTIT                           ;
-  jr input_fields                       ;
+  jr account_edit_or_exit ;input_fields                       ;
 name_taken                              ;
   ld DE,text_name_taken                 ;
   call PRNTIT                           ;
@@ -2809,8 +2812,8 @@ MHELPLINE: DB AT, 19,0,INK, white,PAPER,0,BRIGHT,1,"Press ",INK,2,$95,$96,$97,$9
   DB AT, 18,6,INK,2,$91,$92,$93,$94,128
 
 MLINE_MAIN1:   DB AT, 5,2,INK, cyan, BRIGHT,1, "[1] WiFi Setup",128
-MLINE_MAIN2:   DB AT, 7,2,INK, cyan, BRIGHT,1, "[2] Server Setup",128
-MLINE_MAIN3:   DB AT, 9,2,INK, cyan, BRIGHT,1, "[3] Account Setup",128
+MLINE_MAIN2:   DB AT, 7,2,INK, cyan, BRIGHT,1, "[2] Account Setup",128
+MLINE_MAIN3:   DB AT, 9,2,INK, cyan, BRIGHT,1, "[3] Server Setup",128
 MLINE_MAIN4:   DB AT, 11,2,INK, cyan, BRIGHT,1,"[4] User List",128
 MLINE_MAIN5:   DB AT, 13,2,INK, cyan, BRIGHT,1,"[5] Help",128
 MLINE_MAIN6:   DB AT, 15,2,INK, cyan, BRIGHT,1,"[6] About this software",128
@@ -2818,7 +2821,7 @@ MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
 MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP x.xx  "
-VERSION_DATE:  DB AT, 0,27,"01/25",128
+VERSION_DATE:  DB AT, 0,27,"06/25",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
