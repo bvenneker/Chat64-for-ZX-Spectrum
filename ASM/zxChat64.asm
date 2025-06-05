@@ -73,6 +73,7 @@ init:                                   ;
   ld (HAVE_PRV_BACKUP),a                ;
   ld (HAVE_PUB_BACKUP),a                ;
   ld (LASTKEY),a                        ;  
+  ld (VICEMODE),a                       ;
   call $229B                            ; screen border black
   ld a,7                                ;
   ld(INKCOLOR),a                        ;
@@ -417,10 +418,16 @@ are_we_in_the_matrix:                   ;
                                         ; or if we are running in the Vice simulator
                                         ;
                                         ;
+  ld a, 253                             ; set tempbyte to 253
+  ld (TEMPBYTE),a                       ;
+matrix_retry:
+  ld a,(TEMPBYTE)
+  cp 0
+  jp z, matrix_exit
   ld a, 245                             ; Load number #245 (to check if the esp32 is connected)
   call sendbyte                         ; write the byte to IO1
                                         ;
-  ld a,100                              ;
+  ld a,255                              ;
   ld (DELAY),a                          ;
   call jdelay                           ;
                                         ; Send the ROM version to the cartrdige
@@ -442,7 +449,11 @@ matrix_n                                ;
   jp z, matrix_exit                     ;
   ld a,1                                ;
   ld (VICEMODE),a                       ;
-                                        ;
+  ld a,(TEMPBYTE)
+  inc a
+  ld (TEMPBYTE),a
+  jp matrix_retry                       ;
+  
 matrix_exit                             ;
   call jdelay                           ;
   ret                                   ;
@@ -2747,7 +2758,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  .BYTE "3.78",128  // ALSO CHANGE VERSION IN COMMON.H, 
+VERSION:  .BYTE "3.79",128  // ALSO CHANGE VERSION IN COMMON.H, 
                          // AND ALSO CHANGE DATE IF NEEDED
                            
 VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
