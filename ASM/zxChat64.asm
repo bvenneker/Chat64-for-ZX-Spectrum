@@ -73,7 +73,7 @@ init:                                   ;
   ld (HAVE_PRV_BACKUP),a                ;
   ld (HAVE_PUB_BACKUP),a                ;
   ld (LASTKEY),a                        ;  
-  ld (VICEMODE),a                       ;
+  ld (EMUMODE),a                       ;
   call $229B                            ; screen border black
   ld a,7                                ;
   ld(INKCOLOR),a                        ;
@@ -96,14 +96,14 @@ start:                                  ;
   CALL PRNTIT                           ;
   LD DE, MHELPLINE                      ;
   CALL PRNTIT                           ;
-  ld a,(VICEMODE)                       ;
+  ld a,(EMUMODE)                       ;
   cp 0                                  ;
-  jp z, not_vice                        ;
-  LD DE, VICELINE                       ;
+  jp z, not_emulation                        ;
+  LD DE, NOCART                       ;
   call PRNTIT                           ;
   call sound_error                      ;
                                         ;
-not_vice                                ;
+not_emulation                                ;
 main_chat_function                      ; 
   ld a,1                                ;
   ld (SCREEN_ID),a                      ; ID 1 = public chat, ID 3= private chat
@@ -415,7 +415,7 @@ clear_screen:                           ;
 ; ---------------------------------------------------------------------
 are_we_in_the_matrix:                   ;
                                         ; this is to check if a real cartridge is attached
-                                        ; or if we are running in the Vice simulator
+                                        ; or if we are running in a simulator
                                         ;
                                         ;
   ld a, 253                             ; set tempbyte to 253
@@ -427,7 +427,7 @@ matrix_retry:
   ld a, 245                             ; Load number #245 (to check if the esp32 is connected)
   call sendbyte                         ; write the byte to IO1
                                         ;
-  ld a,255                              ;
+  ld a,255                              ; 
   ld (DELAY),a                          ;
   call jdelay                           ;
                                         ; Send the ROM version to the cartrdige
@@ -448,7 +448,7 @@ matrix_n                                ;
   cp 128                                ;
   jp z, matrix_exit                     ;
   ld a,1                                ;
-  ld (VICEMODE),a                       ;
+  ld (EMUMODE),a                       ;
   ld a,(TEMPBYTE)
   inc a
   ld (TEMPBYTE),a
@@ -740,7 +740,7 @@ open_channel_bottom                     ;
 ; get the config status, servername and ESP version;
 ; ---------------------------------------------------------------------
 get_status:                             ;
-  ld a, (VICEMODE)                      ;
+  ld a, (EMUMODE)                      ;
   cp 1                                  ;
   jr nz, gs661                          ;
   ld a,'d'                              ;
@@ -799,15 +799,15 @@ first_main_menu:
 main_menu:                              ;
   ld a,0                                ;
   ld (ESCAPE),a                         ;
-  ld a,(VICEMODE)                       ;
+  ld a,(MODE)                       ;
   cp 1                                  ;
-  jp z,vice1                            ;
+  jp z,emulation1                            ;
   call get_status                       ;
   ld a,(CHECK_UPDATE)                   ;
   cp 2                                  ;
   call z,update_screen                  ;
                                         ;
-vice1                                   ;
+emulation1                                   ;
   call clear_screen                     ;
   ld DE,MLINES      : CALL PRNTIT       ;
   ld DE,MLINES_MAIN : CALL PRNTIT       ;
@@ -1093,7 +1093,7 @@ wifi_setup:                             ;
   ld DE,WFSSID                          ;
   CALL PRNTIT                           ;
                                         ;
-  ld a,(VICEMODE)                       ;
+  ld a,(EMUMODE)                       ;
   cp 1                                  ;
   jp  z,wifi_edit_or_exit               ;
                                         ;
@@ -1245,7 +1245,7 @@ account_setup:                          ;
   CALL PRNTIT                           ;
   ld DE, ACCOUNTSETUP                   ;
   CALL PRNTIT                           ;
-  ld a,(VICEMODE)                       ;
+  ld a,(EMUMODE)                       ;
   cp 1                                  ;
   jp z,account_edit_or_exit             ;
   ld b,243                              ;
@@ -1387,7 +1387,7 @@ server_setup:                           ;
   ld DE,SERVERNAME                      ;
   CALL PRNTIT                           ;
                                         ;
-  ld a,(VICEMODE)                       ;
+  ld a,(EMUMODE)                       ;
   cp 1                                  ;
   jp z, server_edit_or_exit             ;
   ld a,238                              ;
@@ -1488,7 +1488,7 @@ ul_start:                               ;
   ld DE, USERLISTMENU                   ;
   CALL PRNTIT                           ;
                                         ;
-  ld a,(VICEMODE)                       ;
+  ld a,(EMUMODE)                       ;
   cp 1                                  ;
   jp z, scan_user_list                  ;
   ld a,(TEMPI)                          ;
@@ -2259,7 +2259,7 @@ rc_paper_and_ink                        ;
 ;  check for messages                   ;
 ;----------------------------------------------------------------------
 check_for_messages:                     ;
-  ld a, (VICEMODE)                      ;
+  ld a, (EMUMODE)                      ;
   cp 1                                  ;
   jp z, ch_exit                         ;
                                         ;
@@ -2761,7 +2761,7 @@ exit_nmi                                ;
 VERSION:  .BYTE "3.79",128  // ALSO CHANGE VERSION IN COMMON.H, 
                          // AND ALSO CHANGE DATE IF NEEDED
                            
-VICELINE: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
+NOCART: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
 
 DLINE: DB AT, 20,0, INK, white, PAPER, 0, BRIGHT,0
   BLOCK 32,$90                          ;
@@ -2774,7 +2774,8 @@ MLINES: DB AT,  0,0, INK, green, PAPER, 0, BRIGHT,1
   DB AT, 20,0  
   BLOCK 32,$90                          
   DB 128                                
-  
+
+; Menu titles  
 MLINES_MAIN:    DB AT, 1,10, INK, yellow,BRIGHT,1,"MAIN MENU",128
 MLINES_WIFI:    DB AT, 1,10, INK, yellow,BRIGHT,1,"WiFi SETUP",128
 MLINES_SERVER:  DB AT, 1,9, INK, yellow,BRIGHT,1,"SERVER SETUP",128
@@ -3038,7 +3039,7 @@ CONFIGSTATUS:    DB "      ",128
 ESPVERSION:      DB "x.xx  ",128        
 SERVERNAME:      DB "www.chat64.nl",128 
                  DB "                                ",128
-VICEMODE:        DB 0                   
+EMUMODE:         DB 0                   
 TEMPCOLOR:       DB 0,0                 
                                         
 text_pm_count:   DB " PM:"              
