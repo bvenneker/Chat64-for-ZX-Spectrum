@@ -64,7 +64,7 @@ WiFiResponseMessage responseMessage;
 #define resetSwitch GPIO_NUM_15  // this pin outputs PWM signal at boot
 #define BusIO1 GPIO_NUM_22
 #define sdata GPIO_NUM_34
-#define BusIO2 GPIO_NUM_13  
+#define BusIO2 GPIO_NUM_13
 
 //IOs for CH9350 used on ESP32
 #define RXKEY GPIO_NUM_16
@@ -121,9 +121,9 @@ void create_Task_WifiCore() {
 //  SETUP
 // *************************************************
 void setup() {
-  
+
   Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8N1, RXKEY, TXKEY);  
+  Serial2.begin(115200, SERIAL_8N1, RXKEY, TXKEY);
   USBKeyBoard.begin(Serial2);
 
   commandBuffer = xMessageBufferCreate(sizeof(commandMessage) + sizeof(size_t));
@@ -207,7 +207,7 @@ void setup() {
   digitalWrite(oBusNMI, invert_nmi_signal);
 
   pinMode(RCLK, OUTPUT);
-  digitalWrite(RCLK, LOW);  // must be low  
+  digitalWrite(RCLK, LOW);  // must be low
   pinMode(sclk1, OUTPUT);
   digitalWrite(sclk1, LOW);  //data shifts to serial data output on the transition from low to high.
   pinMode(sclk2, OUTPUT);
@@ -259,7 +259,7 @@ int pos1 = 0;
 int pos0 = 0;
 bool wifiError = false;
 void loop() {
-  
+
   digitalWrite(CLED, isWifiCoreConnected);
   ready_to_receive(true);
 
@@ -321,7 +321,7 @@ void loop() {
           // start byte 254 = Computer triggers call to the website for new public message
           // ------------------------------------------------------------------------------
           if (first_check == 0) first_check = millis();
-          pastMatrix=true;
+          pastMatrix = true;
           // send urgent messages first
           doUrgentMessage();
           // if the user list is empty, get the list
@@ -400,8 +400,8 @@ void loop() {
           if (b == '@') {
             toEncode = "[" + String(translateColor(int(inbuffer[0]))) + "]";
             for (int x = 2; x < 15; x++) {
-              byte b = inbuffer[x];              
-              if (b != 32 and b!=',' and b!=':' and b!=';' and b!='.') {
+              byte b = inbuffer[x];
+              if (b != 32 and b != ',' and b != ':' and b != ';' and b != '.') {
                 if (b < 127) {
                   RecipientName = (RecipientName + char(b));
                 } else {
@@ -414,27 +414,26 @@ void loop() {
               }
             }
           }
-          byte lastb =0;
+          byte lastb = 0;
           for (int x = mstart; x < inbuffersize; x++) {
             byte b = inbuffer[x];
-            lastb=b;
+            lastb = b;
             if (b > 128) {
               toEncode = (toEncode + "[" + translateColor(int(inbuffer[x])) + "]");
             } else {
               //if (b==128) b=' ';
               toEncode = (toEncode + inbuffer[x]);
-              if (b>32 and b<127) message_length++;
+              if (b > 32 and b < 127) message_length++;
             }
           }
-          mstart=mstart+3;
-          if (lastb==128) toEncode.remove(toEncode.length()-1);
+          mstart = mstart + 3;
+          if (lastb == 128) toEncode.remove(toEncode.length() - 1);
 
           if (RecipientName != "") {
             // is this a valid username?
             String test_name = RecipientName;
-            if (test_name.endsWith(",") or test_name.endsWith(".")){
-                test_name.remove(test_name.length()-1);
-
+            if (test_name.endsWith(",") or test_name.endsWith(".")) {
+              test_name.remove(test_name.length() - 1);
             }
             test_name.toLowerCase();
 #ifdef debug
@@ -461,13 +460,13 @@ void loop() {
           }
           toEncode.trim();
           int buflen = toEncode.length() + 1;
-          
-          if (message_length < 1) break;   // this is an empty message, do not send it.
-           
+
+          if (message_length < 1) break;  // this is an empty message, do not send it.
+
           char buff[buflen];
           toEncode.toCharArray(buff, buflen);
 
-          
+
           String Encoded = my_base64_encode(buff, buflen);
 
           // Now send it with retry!
@@ -865,7 +864,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 236 = Computer asks for the server configuration status and servername
           // ------------------------------------------------------------------------------
-          
+
 #ifdef debug
           Serial.println("response 236 = " + configured + " " + server + " " + SwVersion);
 #endif
@@ -964,45 +963,46 @@ void loop() {
   else {
     // No data from computer bus
 
- //   int key;
- //   key = USBKeyBoard.GetKey();
- //   if (key > 0) {
-      //Serial.print(key);
-      //Serial.print("=");
- //    key=translateKeystrokes(key);
-      //Serial.println(key);
- //     int chi = Serial.read();
- //     sendByte(201);       
- //     delayMicroseconds(1500);       
- //     outByte(key);
- //     while (!io2) {}
- //   } 
+    //   int key;
+    //   key = USBKeyBoard.GetKey();
+    //   if (key > 0) {
+    //Serial.print(key);
+    //Serial.print("=");
+    //    key=translateKeystrokes(key);
+    //Serial.println(key);
+    //     int chi = Serial.read();
+    //     sendByte(201);
+    //     delayMicroseconds(1500);
+    //     outByte(key);
+    //     while (!io2) {}
+    //   }
   }
 }  // end of main loop
 
-int translateKeystrokes(int i){
+int translateKeystrokes(int i) {
 
-  if (i == 241) return 199; // f1 = symbol shift - Q (go to main menu)
-  if (i == 179) return 195; // controll S 
-  if (i == 245) return 226; // f5 = symbol shift - A (private message)
+  if (i == 241) return 199;  // f1 = symbol shift - Q (go to main menu)
+  if (i == 179) return 195;  // controll S
+  if (i == 245) return 226;  // f5 = symbol shift - A (private message)
 
-            //   0   1   2   3   4   5   6   7   8   9
-  int kkeys[]={  0,  0,  0,  0,  0,  0,  0,  0, 12,  9,  //   0 -  9
-                10, 11, 12, 13, 14,195, 11, 10,  8,  9,  //  10 - 19
-                20, 21, 22, 23, 24, 25, 26, 27, 28, 29,  //  20 - 29
-                30, 31, 32, 33, 34, 35, 36, 37, 38, 39,  //  30 - 39
-                40, 41, 42, 43, 44, 45, 46, 47, 48, 49,  //  40 - 49
-                50, 51, 52, 53, 54, 55, 56, 57, 58, 59,  //  50 - 59
-                60, 61, 62, 63, 64, 65, 66, 67, 68, 69,  //  60 - 69
-                70, 71, 72, 73, 74, 75, 76, 77, 78, 79,  //  70 - 79
-                80, 81, 82, 83, 84, 85, 86, 87, 88, 89,  //  80 - 89
-                90, 91, 92, 93, 94, 95, 96, 97, 98, 99,  //  90 - 99
-               100,101,102,103,104,105,106,107,108,109,  // 100 - 109
-               110,111,112,113,114,115,116,117,118,119,  // 110 - 119
-               120,121,122,123,124,125,126, 12,128,129   // 120 - 129
-              };
+  //   0   1   2   3   4   5   6   7   8   9
+  int kkeys[] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 12, 9,                     //   0 -  9
+    10, 11, 12, 13, 14, 195, 11, 10, 8, 9,             //  10 - 19
+    20, 21, 22, 23, 24, 25, 26, 27, 28, 29,            //  20 - 29
+    30, 31, 32, 33, 34, 35, 36, 37, 38, 39,            //  30 - 39
+    40, 41, 42, 43, 44, 45, 46, 47, 48, 49,            //  40 - 49
+    50, 51, 52, 53, 54, 55, 56, 57, 58, 59,            //  50 - 59
+    60, 61, 62, 63, 64, 65, 66, 67, 68, 69,            //  60 - 69
+    70, 71, 72, 73, 74, 75, 76, 77, 78, 79,            //  70 - 79
+    80, 81, 82, 83, 84, 85, 86, 87, 88, 89,            //  80 - 89
+    90, 91, 92, 93, 94, 95, 96, 97, 98, 99,            //  90 - 99
+    100, 101, 102, 103, 104, 105, 106, 107, 108, 109,  // 100 - 109
+    110, 111, 112, 113, 114, 115, 116, 117, 118, 119,  // 110 - 119
+    120, 121, 122, 123, 124, 125, 126, 12, 128, 129    // 120 - 129
+  };
 
-  if (i>129) return i;
+  if (i > 129) return i;
   return kkeys[i];
 }
 // ******************************************************************************
@@ -1109,7 +1109,7 @@ void receive_buffer_from_Bus(int cnt) {
   inbuffer[i] = 0;  // close the buffer
   inbuffersize = i;
 #ifdef debug
-      Serial.println();
+  Serial.println();
 #endif
 }
 
@@ -1204,16 +1204,40 @@ void Deserialize() {
 // Send out urgent message if available (error messages)
 // ******************************************************************************
 void doUrgentMessage() {
-  int color = 2; // default color for urgent messages is RED
-  if (urgentMessage.startsWith("[blk]")) {urgentMessage=urgentMessage.substring(5); color = 7;} // black defaults to white
-  if (urgentMessage.startsWith("[blu]")) {urgentMessage=urgentMessage.substring(5); color = 1;}
-  if (urgentMessage.startsWith("[red]")) {urgentMessage=urgentMessage.substring(5); color = 2;}
-  if (urgentMessage.startsWith("[mag]")) {urgentMessage=urgentMessage.substring(5); color = 3;}
-  if (urgentMessage.startsWith("[grn]")) {urgentMessage=urgentMessage.substring(5); color = 4;}
-  if (urgentMessage.startsWith("[cya]")) {urgentMessage=urgentMessage.substring(5); color = 5;}
-  if (urgentMessage.startsWith("[yel]")) {urgentMessage=urgentMessage.substring(5); color = 6;}
-  if (urgentMessage.startsWith("[whi]")) {urgentMessage=urgentMessage.substring(5); color = 7;}
-  
+  int color = 2;  // default color for urgent messages is RED
+  if (urgentMessage.startsWith("[blk]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 7;
+  }  // black defaults to white
+  if (urgentMessage.startsWith("[blu]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 1;
+  }
+  if (urgentMessage.startsWith("[red]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 2;
+  }
+  if (urgentMessage.startsWith("[mag]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 3;
+  }
+  if (urgentMessage.startsWith("[grn]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 4;
+  }
+  if (urgentMessage.startsWith("[cya]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 5;
+  }
+  if (urgentMessage.startsWith("[yel]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 6;
+  }
+  if (urgentMessage.startsWith("[whi]")) {
+    urgentMessage = urgentMessage.substring(5);
+    color = 7;
+  }
+
 
   if (urgentMessage != "") {
     urgentMessage = "          " + urgentMessage + "  ";

@@ -2,7 +2,7 @@
 ; character builder: http://www.amelyn.com/speccy_character_builder/;
 ; Rom : https://skoolkid.github.io/rom/maps/all.html;
                                         ;
-  DEVICE ZXSPECTRUM128                  ;
+  DEVICE ZXSPECTRUM48                   ;
   org $6000                             ;
                                         ;
                                         ;
@@ -96,14 +96,14 @@ start:                                  ;
   CALL PRNTIT                           ;
   LD DE, MHELPLINE                      ;
   CALL PRNTIT                           ;
-  ld a,(EMUMODE)                       ;
+  ld a,(EMUMODE)                        ;
   cp 0                                  ;
-  jp z, not_emulation                        ;
-  LD DE, NOCART                       ;
+  jp z, not_emulation                   ;
+  LD DE, NOCART                         ;  
   call PRNTIT                           ;
   call sound_error                      ;
                                         ;
-not_emulation                                ;
+not_emulation                           ;
 main_chat_function                      ; 
   ld a,1                                ;
   ld (SCREEN_ID),a                      ; ID 1 = public chat, ID 3= private chat
@@ -705,8 +705,11 @@ goto_new_private_screen:                ;
   CALL PRNTIT                           ;
   LD DE, DLINE                          ; draw the divider line
   CALL PRNTIT                           ;
+//  LD DE, FAKECHAT2
+//  CALL PRNTIT  
   call cursor_to_line_one               ;
   call type_last_PMUSER                 ;
+
   jp key_loop                           ;
 goto_pub:                               ;
   ld a,1                                ;
@@ -799,7 +802,7 @@ first_main_menu:
 main_menu:                              ;
   ld a,0                                ;
   ld (ESCAPE),a                         ;
-  ld a,(MODE)                       ;
+  ld a,(EMUMODE)                        ;
   cp 1                                  ;
   jp z,emulation1                            ;
   call get_status                       ;
@@ -1001,7 +1004,11 @@ update_screen:                          ;
   ld a, 12 : rst $10                    ;
   ld DE, VERSION                        ;
   CALL PRNTIT                           ;
-                                        ;
+  
+  ld a,(TEMPBYTE)                       ; if tempbyte contains 123
+  cp 123                                ; then go straight into the update
+  jp z, do_update                       ; without asking the user.
+  
 scan_update_key                         ;
   call key_input ;                      ; Get last key pressed
   jp nc,scan_update_key                 ; If C is clear, keep waiting for key press
@@ -1016,11 +1023,11 @@ do_update                               ;
   ld de,update_bar                      ;
   CALL PRNTIT                           ;
                                         ;
-  call jdelay                            ;
+  call jdelay                           ;
   ld a, 232                             ; send the update command
   call sendbyte                         ;
                                         ; send confirmation
-  call jdelay                            ;
+  call jdelay                           ;
   ld DE,text_update                     ;  
 confirm_update                          ;
   ld a,(DE)                             ;
@@ -1092,8 +1099,7 @@ wifi_setup:                             ;
   CALL PRNTIT                           ;
   ld DE,WFSSID                          ;
   CALL PRNTIT                           ;
-                                        ;
-  ld a,(EMUMODE)                       ;
+  ld a,(EMUMODE)                        ;
   cp 1                                  ;
   jp  z,wifi_edit_or_exit               ;
                                         ;
@@ -1487,8 +1493,9 @@ ul_start:                               ;
   CALL PRNTIT                           ;
   ld DE, USERLISTMENU                   ;
   CALL PRNTIT                           ;
-                                        ;
-  ld a,(EMUMODE)                       ;
+  ld DE, FAKELIST                       ;
+  CALL PRNTIT                           ;
+  ld a,(EMUMODE)                        ;
   cp 1                                  ;
   jp z, scan_user_list                  ;
   ld a,(TEMPI)                          ;
@@ -2093,9 +2100,11 @@ sc_wait_for_key:                        ; Wait for a key press
   call animate_stars                    ;
   ld a,80                               ;
   ld (DELAY),a                          ;
-  call jdelay                            ;
+  call jdelay                           ;
   call key_input                        ; Get last key pressed
   jp nc,sc_wait_for_key                 ; If C is clear, keep waiting for key press
+  cp DELETE
+  jp z,force_update
   ld a,0                                ;
   ld ($FFE1),a                          ;
   ret                                   ;
@@ -2156,6 +2165,16 @@ as_shift_line_r:                        ;
   ld a,(TEMPBYTE)                       ;
   ld (DE),a                             ;
   ret                                   ;
+
+; ---------------------------------------------------------------------
+; Force an update.. or reload the firmware from the website.
+; ---------------------------------------------------------------------
+force_update:
+  ld a,123                              ; set tempbyte to 123
+  ld (TEMPBYTE),a                       ;
+  call create_custom_chars2             ; create custom chars for the loading bar
+  jp update_screen                      ; and jump directly to the update screen
+
 ; ---------------------------------------------------------------------
 ; Delay Routine                         ;
 ; ---------------------------------------------------------------------
@@ -2823,6 +2842,8 @@ HELPPAGE: DB AT,3,0,INK,red,BRIGHT,1,$91,$92,$93,$94
 MHELPLINE: DB AT, 19,0,INK, white,PAPER,0,BRIGHT,1,"Press ",INK,2,$95,$96,$97,$98,INK,white,"+Q for menu";
   DB AT, 18,6,INK,2,$91,$92,$93,$94,128
 
+
+
 MLINE_MAIN1:   DB AT, 5,2,INK, cyan, BRIGHT,1, "[1] WiFi Setup",128
 MLINE_MAIN2:   DB AT, 7,2,INK, cyan, BRIGHT,1, "[2] Account Setup",128
 MLINE_MAIN3:   DB AT, 9,2,INK, cyan, BRIGHT,1, "[3] Server Setup",128
@@ -2832,14 +2853,14 @@ MLINE_MAIN6:   DB AT, 15,2,INK, cyan, BRIGHT,1,"[6] About this software",128
 MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
-MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP x.xx  "
+MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.76  "
 VERSION_DATE:  DB AT, 0,27,"06/25",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
 WFSSID: DB AT, 4,1,INK,7,"SSID:", AT,6,1,"Password:",AT ,8,1,"Time offset from GMT:", AT,10,0,INK,green
   BLOCK 32,$90
-  DB 128                               
+  DB 128                                
   
 SERVERSETUP: DB AT, 4,1,INK,7,"Server:", AT,6,1,"Example 'www.chat64.nl'", AT,8,0,INK,green
   BLOCK 32,$90                          ;
@@ -2886,7 +2907,65 @@ update_bar: DB AT,11,0,INVERSE,0,PAPER,black,BRIGHT,0,INK,yellow,"Installing new
   DB AT,15,0,BRIGHT,0,INK,white,$A1
   BLOCK 30,$9c
   DB $A3,128
-  
+
+FAKECHAT: DB AT, 0,0,INK, white, "and how solve it in your case?  "
+          DB         INK,yellow, "25-06-11 09:20 Outsoft-ZX:      "
+          DB         INK, white, "what was repaired?              "
+          DB         INK,yellow, "25-06-11 09:21 IDLab:           "
+          DB         INK, white, "The OSC additions I am Making ne"
+          DB         INK, white, "eds to add UDP protocol to the W"
+          DB         INK, white, "iFi module, somehow that broke t"
+          DB         INK, white, "he whole init sequence          "
+          DB         INK,yellow, "25-06-11 09:22 IDLab:           "
+          DB         INK, white, "But It's all better now :)      "
+          DB         INK,yellow, "25-06-11 09:23 Outsoft-ZX:      "
+          DB         INK, white, "ah...in case we need to repair u"
+          DB         INK, white, "s too :-)                       "
+          DB         INK,yellow, "25-06-11 16:39 Outsoft-ZX:      "
+          DB         INK, white, "Hi Theo, all OK?                "
+          DB         INK,yellow, "25-06-11 16:57 IDLab:           "
+          DB         INK, white, "yes, am a happy camper, my code "
+          DB         INK, white, "is coming along nicely          "
+          DB         INK,yellow, "25-06-11 16:58 IDLab:           "
+          DB         INK, white, "oh, that was for Theo XD        "
+          DB 128 
+
+FAKECHAT2: DB AT, 2,0,INK, white,"seems to work great!            "
+          DB         INK,yellow, "25-06-11 18:37 @Eliza           "
+          DB         INK, white, "what is the best game for the ZX"
+          DB         INK, white, "Spectrum 48k?                   "
+          DB         INK,yellow, "25-06-11 18:37 from Eliza       "
+          DB         INK, white, "Oh honey, it's gotta be Elite! T"
+          DB         INK, white, "hat game was out of this galaxy,"
+          DB         INK, white, " space trader, action-packed and"
+          DB         INK, white, " pure genius                    "
+          DB         INK,yellow, "25-06-11 09:23 @Eliza           "
+          DB         INK, white, "But what about Jetpack?         "
+          DB         INK,yellow, "25-06-11 18:38 from Eliza       "
+          DB         INK, white, "jetpack was a close call, darlin"
+          DB         INK, white, "g! classic platformer, so addict"
+          DB         INK, white, "ive, but elite had that somethin"
+          DB         INK, white, "g special. still, jetpack       "
+          DB         INK, white, "is a zx spectrum staple, sweet m"
+          DB         INK, white, "emory!                          "
+          DB 128 
+FAKELIST: DB AT, 4,0,INK,white,  "  huijaa        IDLab           "  
+          DB         INK,white,  "  JaredD        Jeroen          "  
+          DB         INK,white,  "  Jeroen64      ",INK,green,"Joost           "
+          DB         INK,white,  "  Jimmy Z       JK2247          "
+          DB         INK,white,  "  k5DMG         Kiba            "
+          DB         INK,green,  "  Lektroid      Ma130XE         "
+          DB         INK,white,  "  Marco         MarCom          "
+          DB         INK,white,  "                                "
+          
+          DB         INK,white,  "  Mcichel       ",INK,green,"MarNext         "
+          DB         INK,white,  "  McFritsch     Mylzi           "
+          DB         INK,white,  "  NML32         Nopkes          "
+          DB         INK,white,  "  Outsoft-XL    OutSoft-64      "
+          DB         INK,white,  "  Outsoft-ZX    Pantera         "
+          DB         INK,green,  "  Pedro         ",INK,white,"Paul3D          "
+          DB         INK,white,  "  Peri          Peter           "
+          DB 128
 text_update_done: DB AT,17,0,BRIGHT,1,INK,yellow,INVERSE,0,"Update done!",128            
                                                                      
 black:   .equ %000000    
@@ -3036,7 +3115,7 @@ CURSPOSBACKUP:   DB 0
 RXFULL:          DB 0                   
 RXINDEX:         DB 0                   
 CONFIGSTATUS:    DB "      ",128        
-ESPVERSION:      DB "x.xx  ",128        
+ESPVERSION:      DB "3.75  ",128        
 SERVERNAME:      DB "www.chat64.nl",128 
                  DB "                                ",128
 EMUMODE:         DB 0                   
