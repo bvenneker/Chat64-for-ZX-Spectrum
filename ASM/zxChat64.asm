@@ -26,18 +26,18 @@ SYMSHFT_A = $E2                         ;
 SYMSHFT_W = $C9                         ;
 SYMSHFT_S = $C3                         ;
 SYMSHFT_Q = $C7                         ;
-ARROWUP   = $5e
-PIPE      = $7c 
-STEP      = $cd 
-BACKSLASH = $5C
-ACCO      = $7B
-ACCC      = $7D
-TO        = $CC
-THEN      = $CB
-AND       = $C6
-OR        = $C5
-BRACO     = $5B
-BRACC     = $5D
+ARROWUP   = $5e                         ;
+PIPE      = $7c                         ;
+STEP      = $cd                         ;
+BACKSLASH = $5C                         ;
+ACCO      = $7B                         ;
+ACCC      = $7D                         ;
+TO        = $CC                         ;
+THEN      = $CB                         ;
+AND       = $C6                         ;
+OR        = $C5                         ;
+BRACO     = $5B                         ;
+BRACC     = $5D                         ;
 CR        = $0C                         ;
 SPACE     = $20                         ;
 DELETE    = $0C                         ;
@@ -48,10 +48,9 @@ CURSOR_U  = $0B                         ;
 COPYRIGHT = $7F                         ;
 ENTER     = $0D                         ;
 REPDEL    = $23                         ;
-                                        ;
 SCREEN_START = $4000                    ;
 SCREEN_SIZE  = $1aff                    ; pixels and attributes
-CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge  (11001011‬, A2 is low)
+CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge (11001011‬, A2 is low)
                                         ;
 init:                                   ;  
   im 1                                  ; interrupt mode 1,Use ROM based interrupt routine   
@@ -88,7 +87,7 @@ init:                                   ;
   cp 'e'                                ;
   jp z, first_main_menu                 ;
 start:                                  ;
-  call clear_screen
+  call clear_screen                     ;
   LD DE, DLINE                          ; draw the divider line
   CALL PRNTIT                           ;
   LD DE, MHELPLINE                      ;
