@@ -2,8 +2,8 @@
 #define COMMON_H_
 #include "Arduino.h"
 
-#define uromVersion "3.79"
-#define SwVersion "3.84"
+#define uromVersion "3.80"
+#define SwVersion "3.85"
 
 #define debug
 #define zxspectrum

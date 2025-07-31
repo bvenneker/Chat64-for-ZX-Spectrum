@@ -1,6 +1,5 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
-#include "CH9350_USBKEY.h"
 #include "common.h"
 #include "utils.h"
 #include "wifi_core.h"
@@ -24,7 +23,7 @@ int wificonnected = -1;
 char regStatus = 'u';
 volatile bool dataFromBus = false;
 volatile bool io2 = false;
-char inbuffer[250];  // a character buffer for incomming data
+char inbuffer[250];  // a character buffer for incoming data
 int inbuffersize = 0;
 char outbuffer[250];  // a character buffer for outgoing data
 int outbuffersize = 0;
@@ -69,8 +68,6 @@ WiFiResponseMessage responseMessage;
 //IOs for CH9350 used on ESP32
 #define RXKEY GPIO_NUM_16
 #define TXKEY GPIO_NUM_17
-
-USB9350_KeyBoard USBKeyBoard;  //Create an Instance for Keyboard
 
 // *************************************************
 // Interrupt routine for IO1
@@ -123,8 +120,6 @@ void create_Task_WifiCore() {
 void setup() {
 
   Serial.begin(115200);
-  Serial2.begin(115200, SERIAL_8N1, RXKEY, TXKEY);
-  USBKeyBoard.begin(Serial2);
 
   commandBuffer = xMessageBufferCreate(sizeof(commandMessage) + sizeof(size_t));
   responseBuffer = xMessageBufferCreate(sizeof(responseMessage) + sizeof(size_t));
@@ -241,11 +236,6 @@ void setup() {
   commandMessage.command = WiFiBeginCommand;
   xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
 
-  //commandMessage.command = GetWiFiLocalIpCommand;
-  //xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
-  //xMessageBufferReceive(responseBuffer, &responseMessage, sizeof(responseMessage), portMAX_DELAY);
-  //String localIp = responseMessage.response.str;
-  // check if we are connected to wifi
   if (isWifiCoreConnected) {
     wificonnected = 1;
   }
@@ -270,7 +260,7 @@ void loop() {
     ready_to_receive(false);  // flow controll
 
 #ifdef debug
-    Serial.printf("incomming command: %d\n", ch);
+    //Serial.printf("incoming command: %d\n", ch);
 #endif
 
     //
@@ -910,10 +900,6 @@ void loop() {
           // Computer asks for user list, second or third page.
           // we send a max of 14 users in one long string
           String ul1 = userPages[userpageCount];
-          //Serial.print("userpage ");
-          //Serial.print(userpageCount);
-          //Serial.print("= ");
-          //Serial.println(ul1);
           ul1.toCharArray(outbuffer, ul1.length() + 1);
           for (int x = 0; x < ul1.length(); x++) {
             if (outbuffer[x] == 130) outbuffer[x] = 0;
@@ -963,48 +949,10 @@ void loop() {
   else {
     // No data from computer bus
 
-    //   int key;
-    //   key = USBKeyBoard.GetKey();
-    //   if (key > 0) {
-    //Serial.print(key);
-    //Serial.print("=");
-    //    key=translateKeystrokes(key);
-    //Serial.println(key);
-    //     int chi = Serial.read();
-    //     sendByte(201);
-    //     delayMicroseconds(1500);
-    //     outByte(key);
-    //     while (!io2) {}
-    //   }
   }
 }  // end of main loop
 
-int translateKeystrokes(int i) {
 
-  if (i == 241) return 199;  // f1 = symbol shift - Q (go to main menu)
-  if (i == 179) return 195;  // controll S
-  if (i == 245) return 226;  // f5 = symbol shift - A (private message)
-
-  //   0   1   2   3   4   5   6   7   8   9
-  int kkeys[] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 12, 9,                     //   0 -  9
-    10, 11, 12, 13, 14, 195, 11, 10, 8, 9,             //  10 - 19
-    20, 21, 22, 23, 24, 25, 26, 27, 28, 29,            //  20 - 29
-    30, 31, 32, 33, 34, 35, 36, 37, 38, 39,            //  30 - 39
-    40, 41, 42, 43, 44, 45, 46, 47, 48, 49,            //  40 - 49
-    50, 51, 52, 53, 54, 55, 56, 57, 58, 59,            //  50 - 59
-    60, 61, 62, 63, 64, 65, 66, 67, 68, 69,            //  60 - 69
-    70, 71, 72, 73, 74, 75, 76, 77, 78, 79,            //  70 - 79
-    80, 81, 82, 83, 84, 85, 86, 87, 88, 89,            //  80 - 89
-    90, 91, 92, 93, 94, 95, 96, 97, 98, 99,            //  90 - 99
-    100, 101, 102, 103, 104, 105, 106, 107, 108, 109,  // 100 - 109
-    110, 111, 112, 113, 114, 115, 116, 117, 118, 119,  // 110 - 119
-    120, 121, 122, 123, 124, 125, 126, 12, 128, 129    // 120 - 129
-  };
-
-  if (i > 129) return i;
-  return kkeys[i];
-}
 // ******************************************************************************
 // void to set a byte in the 74ls595 shift register
 // ******************************************************************************
@@ -1035,14 +983,14 @@ void send_out_buffer_to_Bus() {
     //delayMicroseconds(100);
     sendByte(outbuffer[x]);
 #ifdef debug
-    Serial.print(outbuffer[x]);
+    //Serial.print(outbuffer[x]);
 #endif
   }
   // all done, send end byte
   sendByte(128);
   outbuffersize = 0;
 #ifdef debug
-  Serial.println();
+  //Serial.println();
 #endif
 }
 

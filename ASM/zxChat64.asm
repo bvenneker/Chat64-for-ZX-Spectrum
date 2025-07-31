@@ -828,6 +828,8 @@ skip1                                   ;
   ld DE,MLINE_MAIN5 : CALL PRNTIT       ;
   ld DE,MLINE_MAIN6 : CALL PRNTIT       ;
   ld DE,MLINE_MAIN7 : CALL PRNTIT       ;
+                        ;
+
   call open_channel_bottom              ;
   ld DE,MLINE_VERSION                   ;
   CALL PRNTIT                           ;
@@ -841,7 +843,9 @@ skip1                                   ;
   ld a, 12 : rst $10                    ;
   ld DE, VERSION                        ;
   CALL PRNTIT                           ;
-                                        ;
+
+
+
   call open_channel_top                 ;
                                         ;
 scan_main_menu_key:                     ;
@@ -1928,8 +1932,8 @@ sound_click:                            ; This code if copied from ROM at 0f3b, 
   ret                                   ;
 sound_click2:                           ;
   PUSH AF                               ;
-  ld DE, 5                              ;
-  ld HL, 1300                           ;
+  ld DE, 2                              ;
+  ld HL, 300                            ;
   call $03B5                            ;
   POP AF                                ;
   ret                                   ;
@@ -1944,6 +1948,7 @@ sound_bell2:                            ;
   call $03B5                            ;
   POP AF                                ;
   ret                                   ;
+                                        ;
 sound_error:                            ;
   ld DE, Song_error                     ;  
   call Play                             ;
@@ -2428,7 +2433,7 @@ key_in                                  ;
   jp z, exit_key                        ;
   cp "N"                                ;
   jp z, exit_key                        ;
-  call sound_click                      ;
+  call sound_click2                     ;
   PUSH AF                               ;
   ld a,0                                ;
   ld(LASTM),a                           ; 
@@ -2459,7 +2464,7 @@ checkM:                                 ; This is to work around a bug in 128 ma
   jp z, release_m                       ;
   ld a,1                                ;
   ld (LASTM),a                          ;
-  call sound_click                      ;
+  call sound_click2                     ;
   ld a,"M"                              ;
   RES 5,(IY+$01)                        ;
   SCF                                   ;
@@ -2491,7 +2496,7 @@ checkN:                                 ; This is to work around a bug in 128 ma
   jp z , release_N                      ;
   ld a,1                                ;
   ld (LASTN),a                          ;
-  call sound_click                      ;
+  call sound_click2                     ;
   ld a,"N"                              ;
   RES 5,(IY+$01)                        ;
   SCF                                   ;
@@ -2743,8 +2748,8 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  .BYTE "3.79",128  // ALSO CHANGE VERSION IN COMMON.H, 
-                         // AND ALSO CHANGE DATE IF NEEDED
+VERSION:  .BYTE "3.80",128  // ALSO CHANGE VERSION IN COMMON.H, 
+                            // AND ALSO CHANGE DATE IF NEEDED
                            
 NOCART: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
 
@@ -2808,8 +2813,6 @@ HELPPAGE: DB AT,3,0,INK,red,BRIGHT,1,$91,$92,$93,$94
 MHELPLINE: DB AT, 19,0,INK, white,PAPER,0,BRIGHT,1,"Press ",INK,2,$95,$96,$97,$98,INK,white,"+Q for menu";
   DB AT, 18,6,INK,2,$91,$92,$93,$94,128
 
-
-
 MLINE_MAIN1:   DB AT, 5,2,INK, cyan, BRIGHT,1, "[1] WiFi Setup",128
 MLINE_MAIN2:   DB AT, 7,2,INK, cyan, BRIGHT,1, "[2] Account Setup",128
 MLINE_MAIN3:   DB AT, 9,2,INK, cyan, BRIGHT,1, "[3] Server Setup",128
@@ -2819,8 +2822,8 @@ MLINE_MAIN6:   DB AT, 15,2,INK, cyan, BRIGHT,1,"[6] About this software",128
 MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
-MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.76  "
-VERSION_DATE:  DB AT, 0,27,"06/25",128
+MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.80     "
+VERSION_DATE:  DB AT, 0,27,"08/25",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
@@ -3014,7 +3017,7 @@ CURSPOSBACKUP:   DB 0
 RXFULL:          DB 0                   
 RXINDEX:         DB 0                   
 CONFIGSTATUS:    DB "      ",128        
-ESPVERSION:      DB "3.75  ",128        
+ESPVERSION:      DB "3.85  ",128        
 SERVERNAME:      DB "www.chat64.nl",128 
                  DB "                                ",128
 EMUMODE:         DB 0                   

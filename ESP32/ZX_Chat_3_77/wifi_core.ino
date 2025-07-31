@@ -431,8 +431,7 @@ void doUpdate(){
     httpUpdate.onEnd(update_finished);
     httpUpdate.onProgress(update_progress);
     httpUpdate.onError(update_error);
-    httpUpdate.update(client, "http://www.chat64.nl/update/ZX48_Chat.bin");
-    
+    httpUpdate.update(client, "http://www.chat64.nl/update/ZX48_Chat.bin");    
 }
 
 void update_started() {
