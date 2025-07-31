@@ -50,7 +50,7 @@ ENTER     = $0D                         ;
 REPDEL    = $23                         ;
 SCREEN_START = $4000                    ;
 SCREEN_SIZE  = $1aff                    ; pixels and attributes
-CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge (11001011‬, A2 is low)
+CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge (11001011U+202C, A2 is low)
                                         ;
 init:                                   ;  
   im 1                                  ; interrupt mode 1,Use ROM based interrupt routine   
@@ -423,9 +423,9 @@ matrix_retry:
   ld a, 245                             ; Load number #245 (to check if the esp32 is connected)
   call sendbyte                         ; write the byte to IO1
                                         ;
-  ld a,255                              ; 
-  ld (DELAY),a                          ;
-  call jdelay                           ;
+  ld a,255                              ;
+  ld (DELAY_VALUE),a                    ;
+  call delay                           ;
                                         ; Send the ROM version to the cartrdige
   ld DE,VERSION                         ;
 sendversion                             ;
@@ -437,21 +437,21 @@ sendversion                             ;
   jr sendversion                        ;
 matrix_n                                ;
   ld a,255                              ;
-  ld (DELAY),a                          ;
-  call jdelay                           ;
+  ld (DELAY_VALUE),a                    ;
+  call delay                            ;
                                         ;
   in a,(CARTRIDGE_IO)                   ;
   cp 128                                ;
   jp z, matrix_exit                     ;
   ld a,1                                ;
-  ld (EMUMODE),a                       ;
-  ld a,(TEMPBYTE)
-  inc a
-  ld (TEMPBYTE),a
+  ld (EMUMODE),a                        ;
+  ld a,(TEMPBYTE)                       ;
+  inc a                                 ;
+  ld (TEMPBYTE),a                       ;
   jp matrix_retry                       ;
-  
+                                        ;
 matrix_exit                             ;
-  call jdelay                           ;
+  call delay                            ;
   ret                                   ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -579,8 +579,8 @@ no_padding
   call sendbyte                         ;
                                         ;
   ld a,100                              ;
-  ld (DELAY),a                          ;
-  call jdelay                            ;
+  ld (DELAY_VALUE),a                    ;
+  call delay                            ;
                                         ;
   ld DE,TXBUFFER                        ; send the TXBUFFER
 sm_tx_loop                              ;
@@ -594,13 +594,9 @@ sm_tx_loop                              ;
 sm_exit                                 ;
   call clear_message_lines              ;
   ld a,250                              ;
-  ld (DELAY),a                          ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
+  ld (DELAY_VALUE),a                    ;
+  call long_delay                       ;
+  call long_delay                       ;
   call do_check                         ; check for messages to get your own message back quick
   ld a, (SCREEN_ID)                     ;
   cp 1                                  ;
@@ -701,11 +697,8 @@ goto_new_private_screen:                ;
   CALL PRNTIT                           ;
   LD DE, DLINE                          ; draw the divider line
   CALL PRNTIT                           ;
-//  LD DE, FAKECHAT2
-//  CALL PRNTIT  
   call cursor_to_line_one               ;
   call type_last_PMUSER                 ;
-
   jp key_loop                           ;
 goto_pub:                               ;
   ld a,1                                ;
@@ -1019,11 +1012,11 @@ do_update                               ;
   ld de,update_bar                      ;
   CALL PRNTIT                           ;
                                         ;
-  call jdelay                           ;
+  call delay                           ;
   ld a, 232                             ; send the update command
   call sendbyte                         ;
                                         ; send confirmation
-  call jdelay                           ;
+  call delay                           ;
   ld DE,text_update                     ;  
 confirm_update                          ;
   ld a,(DE)                             ;
@@ -1218,20 +1211,11 @@ save_wifi_settings:                     ;
   call send_out_line                    ;
                                         ;
   ld a,255                              ;
-  ld (DELAY),a                          ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-  call jdelay                           ;
-                                        ;
+  ld (DELAY_VALUE),a                    ;
+  call long_delay                       ;
+  call long_delay                       ;
+  call long_delay                       ;
+  call long_delay                       ;
   jp wifi_setup                         ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -1247,7 +1231,7 @@ account_setup:                          ;
   CALL PRNTIT                           ;
   ld DE, ACCOUNTSETUP                   ;
   CALL PRNTIT                           ;
-  ld a,(EMUMODE)                       ;
+  ld a,(EMUMODE)                        ;
   cp 1                                  ;
   jp z,account_edit_or_exit             ;
   ld b,243                              ;
@@ -1292,7 +1276,7 @@ account_setup:                          ;
 unreg                                   ;
   ld DE,text_unreg_error                ;
   call PRNTIT                           ;
-  jr account_edit_or_exit ;input_fields                       ;
+  jr account_edit_or_exit               ;input_fields
 name_taken                              ;
   ld DE,text_name_taken                 ;
   call PRNTIT                           ;
@@ -1362,11 +1346,8 @@ save_account_settings:                  ;
   call send_out_line                    ;
                                         ;
   ld a,250                              ;
-  ld (DELAY),a                          ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-                                        ;
+  ld (DELAY_VALUE),a                    ;
+  call long_delay                       ;
   jp z, account_setup                   ;
 ; ---------------------------------------------------------------------
 ; Server Setup                          ;
@@ -1389,18 +1370,15 @@ server_setup:                           ;
   ld DE,SERVERNAME                      ;
   CALL PRNTIT                           ;
                                         ;
-  ld a,(EMUMODE)                       ;
+  ld a,(EMUMODE)                        ;
   cp 1                                  ;
   jp z, server_edit_or_exit             ;
   ld a,238                              ;
   call sendbyte                         ;
   ld a,250                              ;
-  ld (DELAY),a                          ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-                                        ;
+  ld (DELAY_VALUE),a                    ;
+  call delay                            ;
+  call long_delay                       ;
   ld b,237                              ;
   call send_start_byte_ff               ; RXBUFFER now contains the connection status
   ld a,AT: rst $10                      ;
@@ -1465,14 +1443,9 @@ read_server_name                        ;
                                         ;
   ld a,128                              ; end the transmission with byte 128
   call sendbyte                         ; Send A to cartridge port
-  call jdelay                            ;
-  call jdelay                            ;                                         
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
-  call jdelay                            ;
+  call long_delay                       ;
+  call long_delay                       ;                                         
+  call long_delay                       ;
   jp z, server_setup                    ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -1488,8 +1461,6 @@ ul_start:                               ;
   ld DE, MLINES_USERS                   ;
   CALL PRNTIT                           ;
   ld DE, USERLISTMENU                   ;
-  CALL PRNTIT                           ;
-  ld DE, FAKELIST                       ;
   CALL PRNTIT                           ;
   ld a,(EMUMODE)                        ;
   cp 1                                  ;
@@ -1585,10 +1556,10 @@ scan_reset_keys:                        ;
   jp main_menu                          ;
                                         ;
 do_reset:                               ;
-  call jdelay                            ;
+  call delay                            ;
   ld a,244                              ;
   call sendbyte                         ;
-  call jdelay                            ;
+  call delay                            ;
   ld DE,text_reset                      ;
 confirm_reset                           ;
   ld a,(DE)                             ;
@@ -1956,22 +1927,22 @@ sound_click:                            ; This code if copied from ROM at 0f3b, 
   POP AF                                ; Restore AF
   ret                                   ;
 sound_click2:                           ;
-  PUSH AF  
+  PUSH AF                               ;
   ld DE, 5                              ;
   ld HL, 1300                           ;
   call $03B5                            ;
-  POP AF
+  POP AF                                ;
   ret                                   ;
                                         ;
 sound_bell2:                            ;
-  PUSH AF
+  PUSH AF                               ;
   ld DE, 30                             ;
   ld HL, 2800                           ;
   call $03B5                            ;
   ld DE, 60                             ;
   ld HL, 1800                           ;
   call $03B5                            ;
-  POP AF
+  POP AF                                ;
   ret                                   ;
 sound_error:                            ;
   ld DE, Song_error                     ;  
@@ -2095,12 +2066,12 @@ start_screen:                           ;
 sc_wait_for_key:                        ; Wait for a key press
   call animate_stars                    ;
   ld a,80                               ;
-  ld (DELAY),a                          ;
-  call jdelay                           ;
+  ld (DELAY_VALUE),a                    ;
+  call delay                            ;
   call key_input                        ; Get last key pressed
   jp nc,sc_wait_for_key                 ; If C is clear, keep waiting for key press
-  cp DELETE
-  jp z,force_update
+  cp DELETE                             ;
+  jp z,force_update                     ;
   ld a,0                                ;
   ld ($FFE1),a                          ;
   ret                                   ;
@@ -2165,7 +2136,7 @@ as_shift_line_r:                        ;
 ; ---------------------------------------------------------------------
 ; Force an update.. or reload the firmware from the website.
 ; ---------------------------------------------------------------------
-force_update:
+force_update:                           ;
   ld a,123                              ; set tempbyte to 123
   ld (TEMPBYTE),a                       ;
   call create_custom_chars2             ; create custom chars for the loading bar
@@ -2174,8 +2145,8 @@ force_update:
 ; ---------------------------------------------------------------------
 ; Delay Routine                         ;
 ; ---------------------------------------------------------------------
-jdelay:                                  ;
-  ld a,(DELAY)                          ;
+delay:                                  ;
+  ld a,(DELAY_VALUE)                    ;
 delay_loop0:                            ;
   ld b,255                              ;
 delay_loop1:                            ;
@@ -2184,18 +2155,17 @@ delay_loop1:                            ;
   jp nz,delay_loop0                     ;
   ret                                   ;
                                         ;
-delay2:
-  call jdelay
-  call jdelay
-  call jdelay
-  ret
+long_delay:                             ;
+  call delay                            ;
+  call delay                            ;
+  call delay                            ;
+  ret                                   ;
 ; ---------------------------------------------------------------------
 ;  Send a byte to the cartridge         ;
 ;  byte in A                            ;
 ; ---------------------------------------------------------------------
 sendbyte:                               ;
   call wait_for_ready_to_receive        ; wait for ready to receive
-  
   out (CARTRIDGE_IO),a                  ;
   ret                                   ;
                                         ;
@@ -2274,7 +2244,7 @@ rc_paper_and_ink                        ;
 ;  check for messages                   ;
 ;----------------------------------------------------------------------
 check_for_messages:                     ;
-  ld a, (EMUMODE)                      ;
+  ld a, (EMUMODE)                       ;
   cp 1                                  ;
   jp z, ch_exit                         ;
                                         ;
@@ -2504,8 +2474,8 @@ release_m:                              ; This is to work around a bug in 128 ma
   CP 27                                 ; 
   jp z, release_m                       ;
   ld a,100                              ;
-  ld (DELAY),a                          ;
-  CALL jdelay                           ;
+  ld (DELAY_VALUE),a                    ;
+  CALL delay                            ;
   ld a,0                                ;
   ccf                                   ;
   RET                                   ;
@@ -2534,10 +2504,10 @@ release_N:                              ; This is to work around a bug in 128 ma
   IN A,(C)                              ;
   AND 31                                ;
   CP 23                                 ;
-  jp z, release_N                       ; 
+  jp z, release_N                       ;
   ld a,100                              ;
-  ld (DELAY),a                          ;
-  CALL jdelay                           ;
+  ld (DELAY_VALUE),a                    ;
+  CALL delay                            ;
   ld a,0                                ;
   ccf                                   ;
   RET                                   ;
@@ -2695,28 +2665,28 @@ Print_String:                           ;
 ; ld   DE, Song_2  ; point to the song
 ; ---------------------------------------------------------------------
 Play:                                   ;
-        ld   (ptrSound), DE             ;
+  ld   (ptrSound), DE                   ;
 p2                                      ;
-        ld   hl, (ptrSound)             ; point to the song
-        ld   e, (hl)                    ; load frequency in DE
-        inc  hl                         ;
-        ld   d, (hl)                    ; DE now contains frequency
-        ld   a, d                       ;
-        or   e                          ; if DE NOT contains $0000, continue    
-        jr   nz, play_cont              ;
-        ret                             ;
+  ld   hl, (ptrSound)                   ; point to the song
+  ld   e, (hl)                          ; load frequency in DE
+  inc  hl                               ;
+  ld   d, (hl)                          ; DE now contains frequency
+  ld   a, d                             ;
+  or   e                                ; if DE NOT contains $0000, continue    
+  jr   nz, play_cont                    ;
+  ret                                   ;
                                         ;
 play_cont                               ;
-        inc  hl                         ;
-        ld   c, (hl)                    ;
-        inc  hl                         ;
-        ld   b, (hl)                    ;
-        inc  hl                         ;
-        ld   (ptrSound), hl             ;
-        ld   h, b                       ;
-        ld   l, c                       ;
-        call $03B5                      ;
-        jr p2                           ;
+  inc  hl                               ;
+  ld   c, (hl)                          ;
+  inc  hl                               ;
+  ld   b, (hl)                          ;
+  inc  hl                               ;
+  ld   (ptrSound), hl                   ;
+  ld   h, b                             ;
+  ld   l, c                             ;
+  call $03B5                            ;
+  jr p2                                 ;
                                         ;
 ; ---------------------------------------------------------------------
 ; NMI Routine                           ;
@@ -2726,8 +2696,8 @@ nmi_routine:                            ;
   cp 201                                ;
   jr nz,nmi_no_key                      ;
   ld a,100                              ;
-  ld (DELAY),a                          ;
-  call jdelay                           ;
+  ld (DELAY_VALUE),a                    ;
+  call delay                            ;
   in a, (CARTRIDGE_IO)                  ;
   ld (INKEY),a                          ;
   jr exit_nmi                           ;
@@ -2739,7 +2709,7 @@ nmi_no_key                              ;
   ld de, RXBUFFER                       ;
   add de,bc                             ;
                                         ;
-  in a,(CARTRIDGE_IO)                  ; read a byte from the cartridge
+  in a,(CARTRIDGE_IO)                   ; read a byte from the cartridge
                                         ;
   ld (de),a                             ;
   cp 128                                ;
@@ -2904,64 +2874,6 @@ update_bar: DB AT,11,0,INVERSE,0,PAPER,black,BRIGHT,0,INK,yellow,"Installing new
   BLOCK 30,$9c
   DB $A3,128
 
-FAKECHAT: DB AT, 0,0,INK, white, "and how solve it in your case?  "
-          DB         INK,yellow, "25-06-11 09:20 Outsoft-ZX:      "
-          DB         INK, white, "what was repaired?              "
-          DB         INK,yellow, "25-06-11 09:21 IDLab:           "
-          DB         INK, white, "The OSC additions I am Making ne"
-          DB         INK, white, "eds to add UDP protocol to the W"
-          DB         INK, white, "iFi module, somehow that broke t"
-          DB         INK, white, "he whole init sequence          "
-          DB         INK,yellow, "25-06-11 09:22 IDLab:           "
-          DB         INK, white, "But It's all better now :)      "
-          DB         INK,yellow, "25-06-11 09:23 Outsoft-ZX:      "
-          DB         INK, white, "ah...in case we need to repair u"
-          DB         INK, white, "s too :-)                       "
-          DB         INK,yellow, "25-06-11 16:39 Outsoft-ZX:      "
-          DB         INK, white, "Hi Theo, all OK?                "
-          DB         INK,yellow, "25-06-11 16:57 IDLab:           "
-          DB         INK, white, "yes, am a happy camper, my code "
-          DB         INK, white, "is coming along nicely          "
-          DB         INK,yellow, "25-06-11 16:58 IDLab:           "
-          DB         INK, white, "oh, that was for Theo XD        "
-          DB 128 
-
-FAKECHAT2: DB AT, 2,0,INK, white,"seems to work great!            "
-          DB         INK,yellow, "25-06-11 18:37 @Eliza           "
-          DB         INK, white, "what is the best game for the ZX"
-          DB         INK, white, "Spectrum 48k?                   "
-          DB         INK,yellow, "25-06-11 18:37 from Eliza       "
-          DB         INK, white, "Oh honey, it's gotta be Elite! T"
-          DB         INK, white, "hat game was out of this galaxy,"
-          DB         INK, white, " space trader, action-packed and"
-          DB         INK, white, " pure genius                    "
-          DB         INK,yellow, "25-06-11 09:23 @Eliza           "
-          DB         INK, white, "But what about Jetpack?         "
-          DB         INK,yellow, "25-06-11 18:38 from Eliza       "
-          DB         INK, white, "jetpack was a close call, darlin"
-          DB         INK, white, "g! classic platformer, so addict"
-          DB         INK, white, "ive, but elite had that somethin"
-          DB         INK, white, "g special. still, jetpack       "
-          DB         INK, white, "is a zx spectrum staple, sweet m"
-          DB         INK, white, "emory!                          "
-          DB 128 
-FAKELIST: DB AT, 4,0,INK,white,  "  huijaa        IDLab           "  
-          DB         INK,white,  "  JaredD        Jeroen          "  
-          DB         INK,white,  "  Jeroen64      ",INK,green,"Joost           "
-          DB         INK,white,  "  Jimmy Z       JK2247          "
-          DB         INK,white,  "  k5DMG         Kiba            "
-          DB         INK,green,  "  Lektroid      Ma130XE         "
-          DB         INK,white,  "  Marco         MarCom          "
-          DB         INK,white,  "                                "
-          
-          DB         INK,white,  "  Mcichel       ",INK,green,"MarNext         "
-          DB         INK,white,  "  McFritsch     Mylzi           "
-          DB         INK,white,  "  NML32         Nopkes          "
-          DB         INK,white,  "  Outsoft-XL    OutSoft-64      "
-          DB         INK,white,  "  Outsoft-ZX    Pantera         "
-          DB         INK,green,  "  Pedro         ",INK,white,"Paul3D          "
-          DB         INK,white,  "  Peri          Peter           "
-          DB 128
 text_update_done: DB AT,17,0,BRIGHT,1,INK,yellow,INVERSE,0,"Update done!",128            
                                                                      
 black:   .equ %000000    
@@ -3078,16 +2990,7 @@ key2ascii:
   DB 0,"B",0,0,0,0,"b",0          ; 233 - 240
   DB 0,"N",0,"*",0,"M","n",0      ; 241 - 248
   DB 0,0,"m",",",0,32,0           ; 249 - 255
-
-;SYMSHFT_I = $AC                         
-;SYMSHFT_A = $E2                         
-;SYMSHFT_S = $C3                                                                                                     
-;SYMSHFT_Q = $C7                                                                          
-
-
-
-
-                                                                             
+                                                                      
 ; Variables                             
 LASTKEY:         DB 0
 CHECK_UPDATE:    DB 1                          
@@ -3103,7 +3006,7 @@ TEMPBYTE:        DB 0
 FLASHCURSOR:     DB 0                   
 TEMPI:           DB 0                   
 TEMPL:           DB 0                   
-DELAY:           DB 0                   
+DELAY_VALUE:     DB 0                   
 HAVE_PUB_BACKUP: DB 0                   
 HAVE_PRV_BACKUP: DB 0                   
 HOMECOLM:        DB 0                   
@@ -3115,15 +3018,13 @@ ESPVERSION:      DB "3.75  ",128
 SERVERNAME:      DB "www.chat64.nl",128 
                  DB "                                ",128
 EMUMODE:         DB 0                   
-TEMPCOLOR:       DB 0,0                 
-                                        
+TEMPCOLOR:       DB 0,0                                     
 text_pm_count:   DB " PM:"              
 PMCOUNT:         DB "10 ", 128          
 text_pm_count0:  DB 32,32,32,32,32,32,32,32,32,32,128
 PMUSER:          DB "@Eliza ",128,128,128,128,128,128,128,128,128,128
 INKEY:           DB 0               
 ESCAPE:          DB 0              
-
 
 ; -------------------------------------------------------------------
 ; Notes to be uploaded to HL
@@ -3370,7 +3271,6 @@ Song_update:
   dw G_5_f,G_5 ,G_5_f,D_5 ,G_5_f,G_5,   D_5_f,D_5
   dw $0000
 
-   
 ptrSound:
   dw Song_error
 
@@ -3390,7 +3290,6 @@ RXBUFFER:
 
   org RXBUFFER + 300
 TXBUFFER: 
- 
 
 ; Deployment: Binfile                   
                                         
