@@ -51,12 +51,9 @@ REPDEL    = $23                         ;
                                         ;
 SCREEN_START = $4000                    ;
 SCREEN_SIZE  = $1aff                    ; pixels and attributes
-CARTRIDGE_IO = $00FB                    ; IO port address for the cartridge  (11111011, A2 is low)
-PRINTER_IO   = $00F7                    ; IO port address for the ZX Printer (11110111, A3 is low)
-                                        ;
+CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge  (11001011‬, A2 is low)
                                         ;
 init:                                   ;  
-                                        ;
   im 1                                  ; interrupt mode 1,Use ROM based interrupt routine   
                                         ;
   ld HL, nmi_routine                    ; change NMI vector
@@ -64,16 +61,16 @@ init:                                   ;
                                         ;
   ld a,($5c3b)                          ; set keyboard mode to L
   or  %00001000                         ;
-  and %11101111
+  and %11101111                         ;
   ld ($5c3b),a                          ;
-  SET 3,(IY+$01)                         ; set keyboard mode to L
+  SET 3,(IY+$01)                        ; set keyboard mode to L
   EI                                    ; enable maskable interrups
   call create_custom_chars              ;
   ld a,0                                ;
   ld (HAVE_PRV_BACKUP),a                ;
   ld (HAVE_PUB_BACKUP),a                ;
   ld (LASTKEY),a                        ;  
-  ld (EMUMODE),a                       ;
+  ld (EMUMODE),a                        ;
   call $229B                            ; screen border black
   ld a,7                                ;
   ld(INKCOLOR),a                        ;
