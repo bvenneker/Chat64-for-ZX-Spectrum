@@ -50,7 +50,7 @@ ENTER     = $0D                         ;
 REPDEL    = $23                         ;
 SCREEN_START = $4000                    ;
 SCREEN_SIZE  = $1aff                    ; pixels and attributes
-CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge (11001011U+202C, A2 is low)
+CARTRIDGE_IO = $00CB                    ; IO port address for the cartridge (11001011, A2 is low)
                                         ;
 init:                                   ;  
   im 1                                  ; interrupt mode 1,Use ROM based interrupt routine   
