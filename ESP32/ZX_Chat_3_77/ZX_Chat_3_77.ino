@@ -525,8 +525,7 @@ void loop() {
           settings.putString("password", password);
           settings.putString("timeoffset", timeoffset);
           settings.end();
-          commandMessage.command = WiFiBeginCommand;
-          xMessageBufferSend(commandBuffer, &commandMessage, sizeof(commandMessage), portMAX_DELAY);
+          softReset();
           break;
         }
 
