@@ -4,27 +4,19 @@
 ;** Modifications:
 ;** - Bootloader in stead of main edit loop
 ;** - NMI routine
-;** - New Character set (C64 characters)
+;** - New Character set (bolder characters)
+;** Compile with SJAMSPLUS
 ;*********************************************************************************
+  DEVICE ZXSPECTRUM48
+; --------------------------
+; Last updated: 30-SEPT-2025
+; --------------------------
 
-; Compile with ZASM
+CHAT64START=$6000  
 
-; -------------------------
-; Last updated: 19-JAN-2025
-; -------------------------
-
-; TASM cross-assembler directives. 
-; ( comment out, perhaps, for other assemblers - see Notes at end.)
-
-#define DEFB .BYTE      
-#define DEFW .WORD
-#define DEFM .TEXT
-#define ORG  .ORG
-#define EQU  .EQU
-#define equ  .EQU
 
 ;   It is always a good idea to anchor, using ORGs, important sections such as 
-;   the character bitmaps so that they dont move as code is added and removed.
+;   the character bitmaps so that they don't move as code is added and removed.
 
 ;   Generally most approaches try to maintain main entry points as they are
 ;   often used by third-party software. 
@@ -193,7 +185,6 @@ L0048:  PUSH    BC              ; Save the other main registers.
 ;   is made to MAIN-4, etc. to handle the error.
 
 ;; ERROR-2
-   org $0053
 L0053:  POP     HL              ; drop the return address - the location
                                 ; after the RST 08H instruction.
         LD      L,(HL)          ; fetch the error code that follows.
@@ -204,7 +195,6 @@ L0053:  POP     HL              ; drop the return address - the location
 ;   updated.
 
 ;; ERROR-3
-  org $0055
 L0055:  LD      (IY+$00),L      ; Store it in the system variable ERR_NR.
         LD      SP,($5C3D)      ; ERR_SP points to an error handler on the
                                 ; machine stack. There may be a hierarchy
@@ -220,36 +210,19 @@ L0055:  LD      (IY+$00),L      ; Store it in the system variable ERR_NR.
                                 ; variables area and then indirectly to MAIN-4, 
                                 ; etc.
 
+; ---
+
+        DEFB    $FF, $FF, $FF   ; Unused locations
+        DEFB    $FF, $FF, $FF   ; before the fixed-position
+        DEFB    $FF             ; NMI routine.
+
 ; ------------------------------------
 ; THE 'NON-MASKABLE INTERRUPT' ROUTINE
 ; ------------------------------------
-;   New
-;   There is no NMI switch on the standard Spectrum or its peripherals.
-;   When the NMI line is held low, then no matter what the Z80 was doing at 
-;   the time, it will now execute the code at 66 Hex.
-;   This Interrupt Service Routine will jump to location zero if the contents 
-;   of the system variable NMIADD are zero or return if the location holds a
-;   non-zero address.   So attaching a simple switch to the NMI as in the book 
-;   "Spectrum Hardware Manual" causes a reset.  The logic was obviously 
-;   intended to work the other way.  Sinclair Research said that, since they
-;   had never advertised the NMI, they had no plans to fix the error "until 
-;   the opportunity arose".
-;   
-;   Note. The location NMIADD was, in fact, later used by Sinclair Research 
-;   to enhance the text channel on the ZX Interface 1.
-;   On later Amstrad-made Spectrums, and the Brazilian Spectrum, the logic of 
-;   this routine was indeed reversed but not as at first intended.
-;
-;   It can be deduced by looking elsewhere in this ROM that the NMIADD system
-;   variable pointed to L121C and that this enabled a Warm Restart to be 
-;   performed at any time, even while playing machine code games, or while 
-;   another Spectrum has been allowed to gain control of this one. 
-;
-;   Software houses would have been able to protect their games from attack by
-;   placing two zeros in the NMIADD system variable.
-
-;; RESET
-  org $0066
+; New
+; Bart Venneker created this small NMI routine
+; For the Chat64 ROM
+  ORG $0066
 L0066:
   push af
   push bc
@@ -260,13 +233,21 @@ L0066:
                            
   ld HL,($5CB0)                     ; Read the nmi vector
   jp HL                             ; Jump to the NMI routine
-  
 
+ ORG $0074 
+L0070:
+; ---------------------------
+; THE 'CH ADD + 1' SUBROUTINE
+; ---------------------------
+;   This subroutine is called from RST 20, and three times from elsewhere
+;   to fetch the next immediate character following the current valid character
+;   address and update the associated system variable.
+;   The entry point TEMP-PTR1 is used from the SCANNING routine.
+;   Both TEMP-PTR1 and TEMP-PTR2 are used by the READ command routine.
 
-L0070:  
+;; CH-ADD+1
+L0074:  LD      HL,($5C5D)      ; fetch address from CH_ADD.
 
-L0074:  
- org $0077
 ;; TEMP-PTR1
 L0077:  INC     HL              ; increase the character address by one.
 
@@ -803,7 +784,7 @@ L02AB:  DEC     L               ; cycles 2F>2E>2D>2C>2B>2A>29>28 for
 ;
 
 ;; KEYBOARD
-L02BF:  CALL    L3870   ;L028E           ; routine KEY-SCAN
+L02BF:  CALL    L028E           ; routine KEY-SCAN
         RET     NZ              ; return if invalid combinations
 
 ;   then decrease the counters within the two key-state maps
@@ -816,7 +797,7 @@ L02BF:  CALL    L3870   ;L028E           ; routine KEY-SCAN
 
 ;; K-ST-LOOP
 L02C6:  BIT     7,(HL)          ; is it free ?  (i.e. $FF)
-        JR      NZ,L02D1        ; forward to K-CH-SET if so  
+        JR      NZ,L02D1        ; forward to K-CH-SET if so
 
         INC     HL              ; address the 5-counter
         DEC     (HL)            ; decrease the counter
@@ -827,14 +808,13 @@ L02C6:  BIT     7,(HL)          ; is it free ?  (i.e. $FF)
         LD      (HL),$FF        ; else mark this particular map free.
 
 ;; K-CH-SET
-   org $02D1
 L02D1:  LD      A,L             ; make a copy of the low address byte.
         LD      HL,$5C04        ; point to KSTATE-4
                                 ; (ld l,$04 would do)
         CP      L               ; have both sets been considered ?
         JR      NZ,L02C6        ; back to K-ST-LOOP to consider this 2nd set
 
-;   now the raw key (0-38) is converted to a main key (uppercase).
+;   now the raw key (0-38d) is converted to a main key (uppercase).
 
         CALL    L031E           ; routine K-TEST to get main key in A
 
@@ -865,7 +845,6 @@ L02D1:  LD      A,L             ; make a copy of the low address byte.
 ;   continue or jump to here if one of the buffers was free.
 
 ;; K-NEW
-  org $02F1
 L02F1:  LD      E,A             ; store key in E
         LD      (HL),A          ; place in free location
         INC     HL              ; advance to the interrupt counter
@@ -888,8 +867,9 @@ L02F1:  LD      E,A             ; store key in E
         LD      (HL),A          ; put the decoded key in last location of map.
 
 ;; K-END
-  org $0308
-L0308:  jp K_END
+L0308:  LD      ($5C08),A       ; update LASTK system variable.
+        SET     5,(IY+$01)      ; update FLAGS  - signal a new key.
+        RET                     ; return to interrupt routine.
 
 ; -----------------------
 ; THE 'REPEAT KEY' BRANCH
@@ -900,7 +880,6 @@ L0308:  jp K_END
 ;   is syntactically incorrect and not really desirable.
 
 ;; K-REPEAT
-  org $0310
 L0310:  INC     HL              ; increment the map pointer to second location.
         LD      (HL),$05        ; maintain interrupt counter at 5.
         INC     HL              ; now point to third location.
@@ -926,7 +905,7 @@ L0310:  INC     HL              ; increment the map pointer to second location.
 ; ----------------------
 ;   also called from s-inkey$
 ;   begin by testing for a shift with no other.
- org $031E
+
 ;; K-TEST
 L031E:  LD      B,D             ; load most significant key to B
                                 ; will be $FF if not shift.
@@ -955,7 +934,7 @@ L032C:  LD      HL,L0205        ; address: MAIN-KEYS
 ; THE 'KEYBOARD DECODING' SUBROUTINE
 ; ----------------------------------
 ;   also called from s-inkey$
-  org $0333
+
 ;; K-DECODE
 L0333:  LD      A,E             ; pick up the stored main key
         CP      $3A             ; an arbitrary point between digits and letters
@@ -1985,11 +1964,24 @@ L05ED:  INC     B               ; increment the time-out counter.
                                 ; time allowed.
         RET                     ; return.
 
-; ---------------------------------------------------------------
-; the NMI starts at $0066 and then jumps to this address $0605
-; ---------------------------------------------------------------
-  org $0605
-L0605:   
+; ---------------------------------
+; Entry point for all tape commands
+; ---------------------------------
+; Bart Venneker removed these routines
+; to make room for the Chat64 Bootloader
+  ORG $0605
+  // $5C49 = 1 receive border color  
+  // $5C49 = 5 data length, low byte   (e register)
+  // $5C49 = 6 data length, high byte  (d register)
+  // $5C49 = 7 write program bytes
+  // $5C49 = 0 run the program 
+
+  // $5B02 = low byte data length
+  // $5B03 = high byte data length
+  // $5B04 = low byte data address  
+  // $5B05 = high byte data address  
+
+
   ld a, ($5C49)
   cp 0
   jp z, exit_nmi
@@ -2025,7 +2017,7 @@ do_data_length_HB                   ; receive data length high byte
   ld a,7                            ; set address $5C49 to 7 for the next
   ld ($5C49),a                      ; time NMI is triggered
 
-  ld BC,$6000                       ; set the start address of our program (is fixed at $6000)
+  ld BC,CHAT64START                 ; set the start address of our program
   ld a,b
   ld ($5B05),a                      ; store the high and low byte in addresses
   ld a,c                            ; $5B04 and $5B05
@@ -2039,7 +2031,7 @@ do_program_bytes                    ; receive all program bytes
   ld c,a
   
   in a,($00CB)                      ; Load a byte from the cartridge port into a
-  ld (BC),a                         ; store the byte in BC (starting at $6000)
+  ld (BC),a                         ; store the byte in BC 
   inc BC                            ; increase BC for the next round
   ld a,b
   ld ($5B05),a
@@ -2061,7 +2053,6 @@ do_program_bytes                    ; receive all program bytes
   ld a,0                            ; 
   ld ($5C49),a                      ; set address $5C49 to 0 so the main program knows we are done 
 
-  
 exit_nmi:
   pop iy
   pop ix
@@ -2069,50 +2060,307 @@ exit_nmi:
   pop de
   pop bc
   pop af
-  
-  retn                              ; return from interrupt routine!
-
-  
-PRNTIT2:    
-  ld a, (DE)                      ; Get the character
-  cp 255                          ; CP with 255
-  ret z                           ; Ret if it is equal
-  rst $10                         ; Otherwise print the character
-  inc DE                          ; Inc to the next character in the string
-  jr PRNTIT2                      ; Loop   
-
-cursor_l5:
-  DB $16,5,0,$10,6,$13,0,$11,7,255
-
-
-
-L0609:  
-L0621: 
-L0629: 
-L0642:
-L0644: 
-L064B:
-L0652:
+  retn 
+  ORG $06A0 
+L0605:   ; all removed
+L0609:   ; to make room for the routine above (Chat64 Bootloader)
+L0621:  
+L0629:  
+L0642:  
+L0644:  
+L064B:  
+L0652:  
 L0670:
-L0672:
-L0685:  
-L068F:  
-L0692: 
-L06A0: 
-L06C3:
-L06E1:
-L06F0: 
-L06F5:
-L06F9:
-L0710: 
-L0716:  
-L0723:  
-L073A: 
-L075A:  
-L0767:  
-L078A:  
-L07A6:  
-L07AD:  
+L0672:  
+L0685:
+L068F:
+L0692:  
+; ---
+;   the branch was here to consider a 'SCREEN$', the display file.
+
+;; SA-SCR$
+L06A0:  CP      $AA             ; is character the token 'SCREEN$' ?
+        JR      NZ,L06C3        ; forward to SA-CODE if not.
+
+        LD      A,($5C74)       ; fetch command from T_ADDR
+        CP      $03             ; is it MERGE ?
+        JP       Z,L1C8A        ; jump to REPORT-C if so.
+                                ; 'Nonsense in BASIC'
+
+;   continue with SAVE/LOAD/VERIFY SCREEN$.
+
+        RST     20H             ; NEXT-CHAR
+        CALL    L1BEE           ; routine CHECK-END errors if not at end of
+                                ; statement.
+
+;   continue in runtime.
+
+        LD      (IX+$0B),$00    ; set descriptor length
+        LD      (IX+$0C),$1B    ; to $1b00 to include bitmaps and attributes.
+
+        LD      HL,$4000        ; set start to display file start.
+        LD      (IX+$0D),L      ; place start in
+        LD      (IX+$0E),H      ; the descriptor.
+        JR      L0710           ; forward to SA-TYPE-3
+
+; ---
+;   the branch was here to consider CODE.
+
+;; SA-CODE 
+L06C3:  CP      $AF             ; is character the token 'CODE' ?
+        JR      NZ,L0716        ; forward if not to SA-LINE to consider an
+                                ; auto-started BASIC program.
+
+        LD      A,($5C74)       ; fetch command from T_ADDR
+        CP      $03             ; is it MERGE ?
+        JP      Z,L1C8A         ; jump forward to REPORT-C if so.
+                                ; 'Nonsense in BASIC'
+
+
+        RST     20H             ; NEXT-CHAR advances character address.
+        CALL    L2048           ; routine PR-ST-END checks if a carriage
+                                ; return or ':' follows.
+        JR      NZ,L06E1        ; forward to SA-CODE-1 if there are parameters.
+
+        LD      A,($5C74)       ; else fetch the command from T_ADDR.
+        AND     A               ; test for zero - SAVE without a specification.
+        JP      Z,L1C8A         ; jump to REPORT-C if so.
+                                ; 'Nonsense in BASIC'
+
+;   for LOAD/VERIFY put zero on stack to signify handle at location saved from.
+
+        CALL    L1CE6           ; routine USE-ZERO
+        JR      L06F0           ; forward to SA-CODE-2
+
+; ---
+
+;   if there are more characters after CODE expect start and possibly length.
+
+;; SA-CODE-1
+L06E1:  CALL    L1C82           ; routine EXPT-1NUM checks for numeric
+                                ; expression and stacks it in run-time.
+
+        RST     18H             ; GET-CHAR
+        CP      $2C             ; does a comma follow ?
+        JR      Z,L06F5         ; forward if so to SA-CODE-3
+
+;   else allow saved code to be loaded to a specified address.
+
+        LD      A,($5C74)       ; fetch command from T_ADDR.
+        AND     A               ; is the command SAVE which requires length ?
+        JP      Z,L1C8A         ; jump to REPORT-C if so.
+                                ; 'Nonsense in BASIC'
+
+;   the command LOAD code may rejoin here with zero stacked as start.
+
+;; SA-CODE-2
+L06F0:  CALL    L1CE6           ; routine USE-ZERO stacks zero for length.
+        JR      L06F9           ; forward to SA-CODE-4
+
+; ---
+;   the branch was here with SAVE CODE start, 
+
+;; SA-CODE-3
+L06F5:  RST     20H             ; NEXT-CHAR advances character address.
+        CALL    L1C82           ; routine EXPT-1NUM checks for expression
+                                ; and stacks in run-time.
+
+;   paths converge here and nothing must follow.
+
+;; SA-CODE-4
+L06F9:  CALL    L1BEE           ; routine CHECK-END errors with extraneous
+                                ; characters and quits if checking syntax.
+
+;   in run-time there are two 16-bit parameters on the calculator stack.
+
+        CALL    L1E99           ; routine FIND-INT2 gets length.
+        LD      (IX+$0B),C      ; place length 
+        LD      (IX+$0C),B      ; in descriptor.
+        CALL    L1E99           ; routine FIND-INT2 gets start.
+        LD      (IX+$0D),C      ; place start
+        LD      (IX+$0E),B      ; in descriptor.
+        LD      H,B             ; transfer the
+        LD      L,C             ; start to HL also.
+
+;; SA-TYPE-3
+L0710:  LD      (IX+$00),$03    ; place type 3 - code in descriptor. 
+        JR      L075A           ; forward to SA-ALL.
+
+; ---
+;   the branch was here with BASIC to consider an optional auto-start line
+;   number.
+
+;; SA-LINE
+L0716:  CP      $CA             ; is character the token 'LINE' ?
+        JR      Z,L0723         ; forward to SA-LINE-1 if so.
+
+;   else all possibilities have been considered and nothing must follow.
+
+        CALL    L1BEE           ; routine CHECK-END
+
+;   continue in run-time to save BASIC without auto-start.
+
+        LD      (IX+$0E),$80    ; place high line number in descriptor to
+                                ; disable auto-start.
+        JR      L073A           ; forward to SA-TYPE-0 to save program.
+
+; ---
+;   the branch was here to consider auto-start.
+
+;; SA-LINE-1
+L0723:  LD      A,($5C74)       ; fetch command from T_ADDR
+        AND     A               ; test for SAVE.
+        JP      NZ,L1C8A        ; jump forward to REPORT-C with anything else.
+                                ; 'Nonsense in BASIC'
+
+; 
+
+        RST     20H             ; NEXT-CHAR
+        CALL    L1C82           ; routine EXPT-1NUM checks for numeric
+                                ; expression and stacks in run-time.
+        CALL    L1BEE           ; routine CHECK-END quits if syntax path.
+        CALL    L1E99           ; routine FIND-INT2 fetches the numeric
+                                ; expression.
+        LD      (IX+$0D),C      ; place the auto-start
+        LD      (IX+$0E),B      ; line number in the descriptor.
+
+;   Note. this isn't checked, but is subsequently handled by the system.
+;   If the user typed 40000 instead of 4000 then it won't auto-start
+;   at line 4000, or indeed, at all.
+
+;   continue to save program and any variables.
+
+;; SA-TYPE-0
+L073A:  LD      (IX+$00),$00    ; place type zero - program in descriptor.
+        LD      HL,($5C59)      ; fetch E_LINE to HL.
+        LD      DE,($5C53)      ; fetch PROG to DE.
+        SCF                     ; set carry flag to calculate from end of
+                                ; variables E_LINE -1.
+        SBC     HL,DE           ; subtract to give total length.
+
+        LD      (IX+$0B),L      ; place total length
+        LD      (IX+$0C),H      ; in descriptor.
+        LD      HL,($5C4B)      ; load HL from system variable VARS
+        SBC     HL,DE           ; subtract to give program length.
+        LD      (IX+$0F),L      ; place length of program
+        LD      (IX+$10),H      ; in the descriptor.
+        EX      DE,HL           ; start to HL, length to DE.
+
+;; SA-ALL
+L075A:  LD      A,($5C74)       ; fetch command from T_ADDR
+        AND     A               ; test for zero - SAVE.
+        JP      Z,L0970         ; jump forward to SA-CONTRL with SAVE  ->
+
+; ---
+;   continue with LOAD, MERGE and VERIFY.
+
+        PUSH    HL              ; save start.
+        LD      BC,$0011        ; prepare to add seventeen
+        ADD     IX,BC           ; to point IX at second descriptor.
+
+;; LD-LOOK-H
+L0767:  PUSH    IX              ; save IX
+        LD      DE,$0011        ; seventeen bytes
+        XOR     A               ; reset zero flag
+        SCF                     ; set carry flag
+        CALL    L0556           ; routine LD-BYTES loads a header from tape
+                                ; to second descriptor.
+        POP     IX              ; restore IX.
+        JR      NC,L0767        ; loop back to LD-LOOK-H until header found.
+
+        LD      A,$FE           ; select system channel 'S'
+        CALL    L1601           ; routine CHAN-OPEN opens it.
+
+        LD      (IY+$52),$03    ; set SCR_CT to 3 lines.
+
+        LD      C,$80           ; C has bit 7 set to indicate type mismatch as
+                                ; a default startpoint.
+
+        LD      A,(IX+$00)      ; fetch loaded header type to A
+        CP      (IX-$11)        ; compare with expected type.
+        JR      NZ,L078A        ; forward to LD-TYPE with mis-match.
+
+        LD      C,$F6           ; set C to minus ten - will count characters
+                                ; up to zero.
+
+;; LD-TYPE
+L078A:  CP      $04             ; check if type in acceptable range 0 - 3.
+        JR      NC,L0767        ; back to LD-LOOK-H with 4 and over.
+
+;   else A indicates type 0-3.
+
+        LD      DE,L09C0        ; address base of last 4 tape messages
+        PUSH    BC              ; save BC
+        CALL    L0C0A           ; routine PO-MSG outputs relevant message.
+                                ; Note. all messages have a leading newline.
+        POP     BC              ; restore BC
+
+        PUSH    IX              ; transfer IX,
+        POP     DE              ; the 2nd descriptor, to DE.
+        LD      HL,$FFF0        ; prepare minus seventeen.
+        ADD     HL,DE           ; add to point HL to 1st descriptor.
+        LD      B,$0A           ; the count will be ten characters for the
+                                ; filename.
+
+        LD      A,(HL)          ; fetch first character and test for 
+        INC     A               ; value 255.
+        JR      NZ,L07A6        ; forward to LD-NAME if not the wildcard.
+
+;   but if it is the wildcard, then add ten to C which is minus ten for a type
+;   match or -128 for a type mismatch. Although characters have to be counted
+;   bit 7 of C will not alter from state set here.
+
+        LD      A,C             ; transfer $F6 or $80 to A
+        ADD     A,B             ; add $0A
+        LD      C,A             ; place result, zero or -118, in C.
+
+;   At this point we have either a type mismatch, a wildcard match or ten
+;   characters to be counted. The characters must be shown on the screen.
+
+;; LD-NAME
+L07A6:  INC     DE              ; address next input character
+        LD      A,(DE)          ; fetch character
+        CP      (HL)            ; compare to expected
+        INC     HL              ; address next expected character
+        JR      NZ,L07AD        ; forward to LD-CH-PR with mismatch
+
+        INC     C               ; increment matched character count
+
+;; LD-CH-PR
+L07AD:  RST     10H             ; PRINT-A prints character
+        DJNZ    L07A6           ; loop back to LD-NAME for ten characters.
+
+;   if ten characters matched and the types previously matched then C will 
+;   now hold zero.
+
+        BIT     7,C             ; test if all matched
+        JR      NZ,L0767        ; back to LD-LOOK-H if not
+
+;   else print a terminal carriage return.
+
+        LD      A,$0D           ; prepare carriage return.
+        RST     10H             ; PRINT-A outputs it.
+
+;   The various control routines for LOAD, VERIFY and MERGE are executed 
+;   during the one-second gap following the header on tape.
+
+        POP     HL              ; restore xx
+        LD      A,(IX+$00)      ; fetch incoming type 
+        CP      $03             ; compare with CODE
+        JR      Z,L07CB         ; forward to VR-CONTRL if it is CODE.
+
+;  type is a program or an array.
+
+        LD      A,($5C74)       ; fetch command from T_ADDR
+        DEC     A               ; was it LOAD ?
+        JP      Z,L0808         ; JUMP forward to LD-CONTRL if so to 
+                                ; load BASIC or variables.
+
+        CP      $02             ; was command MERGE ?
+        JP      Z,L08B6         ; jump forward to ME-CONTRL if so.
+
+;   else continue into VERIFY control routine to verify.
+
 ; ----------------------------
 ; THE 'VERIFY CONTROL' ROUTINE
 ; ----------------------------
@@ -2121,7 +2369,6 @@ L07AD:
 ;   2) from earlier with no carry to load or verify code.
 
 ;; VR-CONTRL
-  org $07CB
 L07CB:  PUSH    HL              ; save pointer to data.
         LD      L,(IX-$06)      ; fetch length of old data 
         LD      H,(IX-$05)      ; to HL.
@@ -3503,7 +3750,6 @@ L0C88:  DEC     (IY+$52)        ; decrease SCR_CT
                                 ; been printed.
 
 ;; PO-SCR-3
-   
 L0CD2:  CALL    L0DFE           ; routine CL-SC-ALL to scroll whole display
         LD      B,(IY+$31)      ; fetch DF_SZ to B
         INC     B               ; increase to address last line of display
@@ -5251,26 +5497,31 @@ L121C:
         SET     5,(IY+$02)      ; update TV_FLAG  - signal lower screen will
                                 ; require clearing.
 
-        JP      L12A9           ; forward to MAIN-1
+        JR      L12A9           ; forward to MAIN-1
 
 ; -------------------------
 ; THE 'MAIN EXECUTION LOOP'
 ; -------------------------
-; Bart Venneker Wrote this bootloader for the Chat64 Cartridge
-; BOOTLOADER
+; Bart Venneker changed this routine for the Chat64 ROM
+; The main basic loop now contains a Bootloader
+;
+
 ;; MAIN-EXEC
-L12A2:  
+L12A2:  LD      (IY+$31),$02    ; set DF_SZ lower screen display file size to 
+                                ; two lines.
+        CALL    L1795           ; routine AUTO-LIST
+
 ;; MAIN-1
-L12A9:   
-  org $12A9
-  
-  call L16B0
+ org $12A9
+L12A9: 
+  call $16B0
   LD A,$00
-  CALL    L1601
-  ld HL,$0605                    ; point the NMI vector to a new location in ROM
-  ld ($5CB0),HL                  ; NMI now points to 0605 (we rewrote that code too)
+  CALL $1601
+  ld HL,$0605                       ; point the NMI vector to a new location in ROM
+  ld ($5CB0),HL                     ; NMI now points to 0605 (we rewrote that code too)
+
   
-  ; bootloader code starts here: 
+  ; bootloader code starts here:  
   ld a,1                            ; bootloader Mode 1
   ld ($5C49),a                      ; 
   
@@ -5310,10 +5561,10 @@ no_delay                            ; All the magic happens in the NMI routine a
   call PRNTIT  
   
 run                                 ; when we break out of the above loop
-  jp $6000                          ; we end up here, so we jump to the start of the program
+  jp CHAT64START                    ; we end up here, so we jump to the start of the program
      
 
-PRNTIT:
+PRNTIT
     
     LD A, (DE)                      ; Get the character
     CP 255                          ; CP with 255
@@ -5328,37 +5579,82 @@ text1            ; "12345678901234567890123456789012"
 text2
   DB $16,20,0,$10,0,"Done.",255
 
- 
- 
 
-;; MAIN-2
-L12AC:  
-
-;; MAIN-3
+ 
+L12AC:
 L12CF:  
-;; MAIN-4
 L1303:  
-; Now deal with a runtime error as opposed to an editing error.
-; However if the error code is now zero then the OK message will be printed.
-
-;; MAIN-G
 L1313:  
 
-;; MAIN-5
-L133C:  
+ org $133C
+L133C:  CALL    L15EF           ; call routine OUT-CODE to print the code.
 
-X1349:  
+        LD      A,$20           ; followed by a space.
+        RST     10H             ; PRINT-A
+
+        LD      A,B             ; fetch stored report code.
+        LD      DE,L1391        ; address: rpt-mesgs.
+
+        CALL    L0C0A           ; call routine PO-MSG to print the message.
+
+X1349:  XOR     A               ; clear accumulator to directly
+        LD      DE,L1537 - 1    ; address the comma and space message.  
+
+        CALL    L0C0A           ; routine PO-MSG prints ', ' although it would
+                                ; be more succinct to use RST $10.
+
+        LD      BC,($5C45)      ; fetch PPC the current line number.
+        CALL    L1A1B           ; routine OUT-NUM-1 will print that
+
+        LD      A,$3A           ; then a ':' character.
+        RST     10H             ; PRINT-A
+
+        LD      C,(IY+$0D)      ; then SUBPPC for statement
+        LD      B,$00           ; limited to 127
+        CALL    L1A1B           ; routine OUT-NUM-1 prints BC.
+
+        CALL    L1097           ; routine CLEAR-SP clears editing area which 
+                                ; probably contained 'RUN'.
+
+        LD      A,($5C3A)       ; fetch ERR_NR again
+        INC     A               ; test for no error originally $FF.
+        JR      Z,L1386         ; forward to MAIN-9 if no error.
+
+        CP      $09             ; is code Report 9 STOP ?
+        JR      Z,L1373         ; forward to MAIN-6 if so
+
+        CP      $15             ; is code Report L Break ?
+        JR      NZ,L1376        ; forward to MAIN-7 if not
+
+; Stop or Break was encountered so consider CONTINUE.
+
 ;; MAIN-6
-L1373:  
+L1373:  INC     (IY+$0D)        ; increment SUBPPC to next statement.
 
 ;; MAIN-7
-L1376:  
+L1376:  LD      BC,$0003        ; prepare to copy 3 system variables to
+        LD      DE,$5C70        ; address OSPPC - statement for CONTINUE.
+                                ; also updating OLDPPC line number below.
+
+        LD      HL,$5C44        ; set source top to NSPPC next statement.
+        BIT     7,(HL)          ; did BREAK occur before the jump ?
+                                ; e.g. between GO TO and next statement.
+        JR      Z,L1384         ; skip forward to MAIN-8, if not, as set-up
+                                ; is correct.
+
+        ADD     HL,BC           ; set source to SUBPPC number of current
+                                ; statement/line which will be repeated.
 
 ;; MAIN-8
-L1384:  
+L1384:  LDDR                    ; copy PPC to OLDPPC and SUBPPC to OSPCC
+                                ; or NSPPC to OLDPPC and NEWPPC to OSPCC
 
 ;; MAIN-9
-L1386:  
+L1386:  LD      (IY+$0A),$FF    ; update NSPPC - signal 'no jump'.
+        RES     3,(IY+$01)      ; update FLAGS - signal use 'K' mode for
+                                ; the first character in the editor and
+
+        JP      L12AC           ; jump back to MAIN-2.
 
 
 ; ----------------------
@@ -5372,7 +5668,7 @@ L1386:
 ; statement number which limits the length of the message text to twenty 
 ; characters.
 ; e.g.  "B Integer out of range, 1000:127"
-  ORG $1391
+
 ;; rpt-mesgs
 L1391:  DEFB    $80
         DEFB    'O','K'+$80                             ; 0
@@ -6879,7 +7175,7 @@ L192B:  ADD     HL,BC           ; add negative number to HL.
 ; Outputting characters in a BASIC line
 ; -------------------------------------
 ; This subroutine ...
-  
+
 ;; OUT-CHAR
 L1937:  CALL    L2D1B           ; routine NUMERIC tests if it is a digit ?
         JR      NC,L196C        ; to OUT-CH-3 to print digit without
@@ -8201,7 +8497,7 @@ L1C96:  BIT     7,(IY+$01)      ; test FLAGS - checking syntax only ?
 
 ; Note. For ZASM assembler replace following expression with SUB $13.
 
-L1CA5:  SUB     $13             ; L1AEB-$D8 % 256 ; convert $EB to $D8 ('INK') etc.
+L1CA5:  SUB  $13 ;;;   L1AEB-$D8 % 256 ; convert $EB to $D8 ('INK') etc.
                                 ; ( is SUB $13 in standard ROM )
 
         CALL    L21FC           ; routine CO-TEMP-4
@@ -18636,70 +18932,159 @@ L386C:  DEFB    $38             ;;end-calc              last value is 1 or 0.
 ; ---------------------
 ; THE 'SPARE' LOCATIONS
 ; ---------------------
-;; spare
-  ORG $3870
-  
-L3870:                ; scan keyboard for shift m
-  DI
-  LD BC, $FEFE
-  IN A,(C)
-  AND 31
-  CP 30               ; is shift pressed?
-  jp z, checkM        ; yes, check M key
-  CALL L028E          ; no, continue to L028E
-  EI                  ; Enable interrupts
-  RET                 ; return   
 
-checkM:  
-  ld BC, $7FFE
-  IN A,(C)
-  AND 31
-  CP 27 
-  jp z,setM
-  CALL L028E
-  EI
-  ld a,1
-  
-  ld ($5c79),a
-  RET
-setM:  
-  ld A,129  
-  jp L02F1
-  
-M_EXIT:
-  ld a,0
-  EI
-  RET
-  
-; ALTERNATIVE FOR L0308, this is to work around a 'feature' of the 128k keyboard 
-; We want the cartridge to work on the 128k models. the default rom has issues 
-; with the keyboard ( shift M and shift N among others) 
-K_END:  
-  cp "M"
-  jp z,exit_k_end
-  cp 129
-  jp nz,set_key    
-  ld a, ($5c79)
-  cp 0
-  jp nz,set_m
-  ld a, ($5c78)
-  cp 40
-  jp C,exit_k_end
-  
-set_m:  
-  
-  ld a,0
-  ld ($5c78),a
-  ld ($5c79),a
-  ld A,"M"
-set_key:   
-  LD      ($5C08),A       ; update LASTK system variable.
-  SET     5,(IY+$01)      ; update FLAGS  - signal a new key.
-  RET                     ; return to interrupt routine.
-exit_k_end:  
-  RES     5,(IY+$01)      ; update FLAGS  - No new key
-  RET                     ; return to interrupt routine.
-  
+;; spare
+L386E:  DEFB    $FF, $FF        ;
+
+
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+        DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
+
+ ORG $3D00
 
 ; -------------------------------
 ; THE 'ZX SPECTRUM CHARACTER SET'
@@ -19530,9 +19915,8 @@ L3D00:
 ; ------------------ 
   DB %00111100, %01000010,%10011001,%10100001,%10100001,%10011001,%01000010,%00111100
 ; ------------------ 
-
-#end                            ; generic cross-assembler directive 
-
+  SAVEBIN "ZXBootRom.rom",0,$4000
+  
 ; Acknowledgements
 ; -----------------
 ; Sean Irvine               for default list of section headings

@@ -3,9 +3,9 @@
 ; Rom : https://skoolkid.github.io/rom/maps/all.html;
                                         ;
   DEVICE ZXSPECTRUM48                   ;
-  org $6000                             ;
-                                        ;
-                                        ;
+  
+  org $6000    
+
 ;                                       ;
 ; ROM routine addresses                 ;
 ;                                       ;
@@ -425,7 +425,7 @@ matrix_retry:
                                         ;
   ld a,255                              ;
   ld (DELAY_VALUE),a                    ;
-  call delay                           ;
+  call delay                            ;
                                         ; Send the ROM version to the cartrdige
   ld DE,VERSION                         ;
 sendversion                             ;
@@ -917,13 +917,14 @@ cursor_to_line_one:                     ;
 ; Create input field                    ;
 ; row in d                              ;
 ; colm in e                             ;
+; max length in b                       ;
 ; ---------------------------------------------------------------------
-input_field:                            ;
+input_field:                            ;  
   ld a,AT : rst $10                     ; move the cursor
   ld a,d  : rst $10                     ; to position d,e  (row,column)
   ld a,e  : rst $10                     ;
   ld (HOMECOLM),a                       ; also store e as HOMECOLM
-                                        ;
+                                        ;        
 if_start:                               ;
   call flash_cursor_on_input            ;
                                         ;
@@ -959,9 +960,13 @@ if_backspace:                           ;
 if_print:                               ;
   rst $10                               ; print the character
   call get_cursor_colm                  ;
+  ld a, (FIELDLEN)                      ;
+  ld c,a
   ld a, (COLMPOS)                       ;
-  cp 32                                 ;
-  jp nz,if_not_eol                      ;
+  cp c
+  jp nz,if_not_eol                        ;  
+
+if_at_eol:
   ld a,8                                ;
   rst $10                               ;
 if_not_eol:                             ;
@@ -1162,7 +1167,9 @@ wifi_edit_or_exit:                      ;
 wifi_input_fields:                      ;
                                         ; input fields
   ld d, 4                               ; set line (or row) for the input field SSID
-  ld e, 6                               ; set column for the input field
+  ld e, 6                               ; set column for the input field                                        
+  ld a, 32                              ; field len is 32 so it can never go passed the end of a line
+  ld (FIELDLEN),a                       ;
   call input_field                      ;
   ld a, (ESCAPE)                        ;
   cp 1                                  ;
@@ -1175,6 +1182,8 @@ wifi_input_fields:                      ;
   jp z, main_menu                       ;
   ld d, 8                               ; set line (or row) for the input field GMT OFFSET
   ld e, 22                              ; set column for the input field
+  ld a, 26                              ; max 4 characters in this field 
+  ld (FIELDLEN),a                       ;
   call input_field                      ;
   ld a, (ESCAPE)                        ;
   cp 1                                  ;
@@ -1305,12 +1314,16 @@ input_fields                            ;
   ld a,5   : rst $10                    ;
   ld d, 6                               ; set line (or row) for the input field registration id
   ld e, 8                               ; set column for the input field
+  ld a, 24                              ; max 16 characters in this field
+  ld (FIELDLEN),a
   call input_field                      ;
   ld a, (ESCAPE)                        ;
   cp 1                                  ;
   jp z, main_menu                       ;
   ld d, 8                               ; set line (or row) for the input field nickname
   ld e, 11                              ; set column for the input field
+  ld a, 21                              ; max 10 characters in this field
+  ld (FIELDLEN),a
   call input_field                      ;
   ld a, (ESCAPE)                        ;
   cp 1                                  ;
@@ -1405,7 +1418,9 @@ server_input_fields:                    ;
   ld a,7 : rst $10                      ; 
   ld d, 4                               ; set line (or row) for the input field Server name
   ld e, 8                               ; set column for the input field
-  call input_field                      ;
+  ld a, 32                              ;
+  ld (FIELDLEN),a
+  call input_field                      ; field len is 32, but it can never go passed the end of a line
   ld a, (ESCAPE)                        ; 
   cp 1                                  ;
   jp z, main_menu                       ;
@@ -2255,7 +2270,7 @@ check_for_messages:                     ;
                                         ;
   ld a, ($5c79)                         ; check counter
   cp 1                                  ; if this counter is larger than 1
-  jp p,do_check                         ; we check for messages
+  jp p,do_check                         ; we check for messages  
   ret                                   ;
                                         ;
 do_check                                ;
@@ -2293,6 +2308,7 @@ no_message                              ;
   call nz, display_pm_count             ;
                                         ;
 ch_exit                                 ;
+   
   ret                                   ;
                                         ;
 ;----------------------------------------------------------------------
@@ -2414,17 +2430,12 @@ dm_skip                                 ;
 ; This version prevents the user from changing the cursor Mode
 ; ---------------------------------------------------------------------
 key_input:                              ;
-  ccf                                   ;
-  ld a, (INKEY)                         ; INKEY is a key we received from an external keyboard
-  cp 0                                  ; see if it is zero
-  jp z, check_MN                        ; if so, scan the internal keyboard
-  push af                               ; if we did get a key from the external keyboard
-  ld a,0                                ; load it into the accumulator
-  ld (INKEY) ,a                         ; 
-  pop af                                ;                                 
+  SCF                                   ; Set carry flag
+  CCF                                   ; toggle carry flag back to clear                         
+  jr check_MN                           ;
   RET                                   ;  
                                         ;
-key_in                                  ;
+key_in:                                 ;
   BIT 5,(IY+$01)                        ; Return with both carry and zero flags reset if no new key has
   jr z, exit_key                        ;   
   LD A,($5C08)                          ; Otherwise fetch the code (LAST-K) and signal that it has been
@@ -2441,10 +2452,10 @@ key_in                                  ;
   POP AF                                ;
   SCF                                   ; Show a code has been found and return.
   RET                                   ;
-exit_key                                ; 
+exit_key:                               ; 
   RET                                   ;
                                         ;
-check_MN:                               ; This is to work around a bug in 128 machines                                        
+check_MN:                               ; This is to work around a bug in 128 machines                                          
   LD BC, $FEFE                          ; running in 48k mode, M and N respond intermittent to key strokes
   IN A,(C)                              ; 
   AND 31                                ;
@@ -2453,7 +2464,7 @@ check_MN:                               ; This is to work around a bug in 128 ma
   ld a,0                                ; clear a
   jp key_in                             ; no? , return                                           
                                         ;
-checkM:                                 ; This is to work around a bug in 128 machines   
+checkM:                                 ; This is to work around a bug in 128 machines     
   ld BC, $7FFE                          ; running in 48k mode, M and N respond intermittent to key strokes
   IN A,(C)                              ;
   AND 31                                ;
@@ -2482,6 +2493,7 @@ release_m:                              ; This is to work around a bug in 128 ma
   ld (DELAY_VALUE),a                    ;
   CALL delay                            ;
   ld a,0                                ;
+  scf
   ccf                                   ;
   RET                                   ;
                                         ;
@@ -2514,6 +2526,7 @@ release_N:                              ; This is to work around a bug in 128 ma
   ld (DELAY_VALUE),a                    ;
   CALL delay                            ;
   ld a,0                                ;
+  scf
   ccf                                   ;
   RET                                   ;
                                         ;
@@ -2698,16 +2711,6 @@ play_cont                               ;
 ; ---------------------------------------------------------------------
 nmi_routine:                            ;
   in a, (CARTRIDGE_IO)                  ;
-  cp 201                                ;
-  jr nz,nmi_no_key                      ;
-  ld a,100                              ;
-  ld (DELAY_VALUE),a                    ;
-  call delay                            ;
-  in a, (CARTRIDGE_IO)                  ;
-  ld (INKEY),a                          ;
-  jr exit_nmi                           ;
-                                        ;
-nmi_no_key                              ;
   ld a,(RXINDEX)                        ;
   ld c,a                                ;
   ld b,0                                ;
@@ -2748,7 +2751,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  .BYTE "3.80",128  // ALSO CHANGE VERSION IN COMMON.H, 
+VERSION:  .BYTE "3.81",128  // ALSO CHANGE VERSION IN COMMON.H, 
                             // AND ALSO CHANGE DATE IF NEEDED
                            
 NOCART: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
@@ -2822,8 +2825,8 @@ MLINE_MAIN6:   DB AT, 15,2,INK, cyan, BRIGHT,1,"[6] About this software",128
 MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
-MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.80     "
-VERSION_DATE:  DB AT, 0,27,"08/25",128
+MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.85     "
+VERSION_DATE:  DB AT, 0,27,"10/25",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
@@ -2994,40 +2997,7 @@ key2ascii:
   DB 0,"N",0,"*",0,"M","n",0      ; 241 - 248
   DB 0,0,"m",",",0,32,0           ; 249 - 255
                                                                       
-; Variables                             
-LASTKEY:         DB 0
-CHECK_UPDATE:    DB 1                          
-LINEPOS:         DB 0                   
-COLMPOS:         DB 0                   
-ROWPOS:          DB 0                   
-COLMPOSOLD:      DB 0                   
-FROMBS:          DB 0                   
-FROMENTER:       DB 0                   
-SCREEN_ID:       DB 0                   
-INKCOLOR:        DB 0                   
-TEMPBYTE:        DB 0                   
-FLASHCURSOR:     DB 0                   
-TEMPI:           DB 0                   
-TEMPL:           DB 0                   
-DELAY_VALUE:     DB 0                   
-HAVE_PUB_BACKUP: DB 0                   
-HAVE_PRV_BACKUP: DB 0                   
-HOMECOLM:        DB 0                   
-CURSPOSBACKUP:   DB 0                   
-RXFULL:          DB 0                   
-RXINDEX:         DB 0                   
-CONFIGSTATUS:    DB "      ",128        
-ESPVERSION:      DB "3.85  ",128        
-SERVERNAME:      DB "www.chat64.nl",128 
-                 DB "                                ",128
-EMUMODE:         DB 0                   
-TEMPCOLOR:       DB 0,0                                     
-text_pm_count:   DB " PM:"              
-PMCOUNT:         DB "10 ", 128          
-text_pm_count0:  DB 32,32,32,32,32,32,32,32,32,32,128
-PMUSER:          DB "@Eliza ",128,128,128,128,128,128,128,128,128,128
-INKEY:           DB 0               
-ESCAPE:          DB 0              
+           
 
 ; -------------------------------------------------------------------
 ; Notes to be uploaded to HL
@@ -3277,24 +3247,53 @@ Song_update:
 ptrSound:
   dw Song_error
 
+
+CONFIGSTATUS:    DB "      ",128        
+ESPVERSION:      DB "3.85  ",128        
+SERVERNAME:      DB "www.chat64.nl",128 
+                 DB "                                ",128                                   
+text_pm_count:   DB " PM:"              
+PMCOUNT:         DB "10 ", 128          
+text_pm_count0:  DB 32,32,32,32,32,32,32,32,32,32,128
+PMUSER:          DB "@Eliza ",128,128,128,128,128,128,128,128,128,128
+
+
+; Variables                            
+LASTKEY:         DB 0
+CHECK_UPDATE:    DB 1                          
+LINEPOS:         DB 0                   
+COLMPOS:         DB 0                   
+ROWPOS:          DB 0                   
+COLMPOSOLD:      DB 0                   
+FROMBS:          DB 0                   
+FROMENTER:       DB 0                   
+SCREEN_ID:       DB 0                   
+INKCOLOR:        DB 0                   
+TEMPBYTE:        DB 0                   
+FLASHCURSOR:     DB 0                   
+TEMPI:           DB 0                   
+TEMPL:           DB 0                   
+DELAY_VALUE:     DB 0                   
+HAVE_PUB_BACKUP: DB 0                   
+HAVE_PRV_BACKUP: DB 0                   
+HOMECOLM:        DB 0                   
+FIELDLEN:        DB 0                  
+CURSPOSBACKUP:   DB 0                   
+RXFULL:          DB 0                   
+RXINDEX:         DB 0                   
+EMUMODE:         DB 0                   
+TEMPCOLOR:       DB 0,0 
+INKEY:           DB 0               
+ESCAPE:          DB 0   
 endofProgram: DB "EOCEOC"  // we need this line for the python script that converts the program to an array.
+SPLITBUFFER:     defs 42,0   
+RXBUFFER:        defs 300,0
+TXBUFFER:        defs 300,0
+SCREEN_PRIV_BACKUP: defs 6911,0
+SCREEN_PUB_BACKUP:  defs 6911,0
 
-// Next, some big blocks of reserved space for backups and buffers
-SCREEN_PRIV_BACKUP:
-
-  org SCREEN_PRIV_BACKUP + SCREEN_SIZE
-SCREEN_PUB_BACKUP:
-
-  org SCREEN_PUB_BACKUP + SCREEN_SIZE
-SPLITBUFFER:
-
-  org SPLITBUFFER + 42
-RXBUFFER:
-
-  org RXBUFFER + 300
-TXBUFFER: 
 
 ; Deployment: Binfile                   
-                                        
-  SAVEBIN "main.bin",init      ; this file will be converted into an array and included in the ESP Sketch         
+                                       
+;  SAVEBIN "main.bin",init      ; this file will be converted into an array and included in the ESP Sketch         
   SAVESNA "load.sna",init      ; this is just for the emulator.. for testing         

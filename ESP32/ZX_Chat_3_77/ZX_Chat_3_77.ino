@@ -163,6 +163,11 @@ void setup() {
   // get the nick name from the eeprom
   myNickName = settings.getString("myNickName", "empty");
 
+  // Limit it to 10 chars
+  if ( myNickName.length() > 10 ) {
+    myNickName = myNickName.substring(0, 10);
+  }
+
   // get the last known message id (only the private is stored in eeprom)
   lastprivmsg = settings.getULong("lastprivmsg", 1);
 
@@ -378,6 +383,7 @@ void loop() {
           // ------------------------------------------------------------------------------
 
           // we expect a chat message from the Computer
+          delay(80);
           receive_buffer_from_Bus(1);
           int message_length = 0;
           String toEncode = "";
@@ -791,7 +797,9 @@ void loop() {
 #ifdef debug
           Serial.println(myNickName);
 #endif
-
+          // Limit it to 10 chars
+          if ( myNickName.length() > 10 ) myNickName = myNickName.substring(0, 10);
+                  
           settings.begin("mysettings", false);
           settings.putString("regID", regID);
           settings.putString("myNickName", myNickName);
@@ -1015,10 +1023,13 @@ void receive_buffer_from_Bus(int cnt) {
   int i = 0;
 
   while (cnt > 0) {
+    
     ready_to_receive(true);  // ready for next byte
-    unsigned long timeOut = millis() + 500;
-
+    unsigned long timeOut = millis() + 500;    
     while (dataFromBus == false) {
+      // the computer might have missed out rtr signal (this is a bug on the +3 spectrum)
+      // so set it again
+      if (millis() > (timeOut-450)) ready_to_receive(true);
       delayMicroseconds(2);  // wait for next byte
       if (millis() > timeOut) {
         ch = 128;
@@ -1032,7 +1043,7 @@ void receive_buffer_from_Bus(int cnt) {
     dataFromBus = false;
     inbuffer[i] = ch;
 #ifdef debug
-    Serial.print(char(ch));
+    //Serial.print(char(ch));
 #endif
     i++;
     if (i > 248) {  //this should never happen
@@ -1048,7 +1059,7 @@ void receive_buffer_from_Bus(int cnt) {
       inbuffer[i] = 129;
       i++;
 #ifdef debug
-      Serial.println();
+      //Serial.println();
 #endif
     }
   }
@@ -1068,7 +1079,6 @@ void receive_buffer_from_Bus(int cnt) {
 // pull the NMI line low for a few microseconds
 // ******************************************************************************
 void triggerNMI() {
-
   // toggle NMI
   digitalWrite(oBusNMI, !invert_nmi_signal);
   delayMicroseconds(100);
@@ -1210,6 +1220,7 @@ void doUrgentMessage() {
 void loadPrgfile() {
   int delayTime = 50;
   delay(2000);  // give the computer some time to boot
+  Serial.println("Spectrum Version");
   Serial.println("Waiting for start signal");
   int i = 0;
   while (ch != 100) {  // wait for the computer to send byte 100
