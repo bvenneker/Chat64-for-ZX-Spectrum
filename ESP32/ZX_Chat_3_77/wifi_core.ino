@@ -34,7 +34,7 @@ volatile bool getMessage = false;
 volatile bool pastMatrix = false;
 volatile bool aboutToReset = false;
 volatile bool sendingMessage = false;
-String userPages[10];
+String userPages[20];
 String romVersion = "0.0";
 String newVersions ="";
 MessageBufferHandle_t commandBuffer;
@@ -126,7 +126,7 @@ bool SendMessageToServer(String Encoded, String RecipientName, int retryCount, b
 void get_full_userlist() {
   // this is for the user list in the menu (Who is on line?)
   // The second core calls this webpage so the main thread does not suffer performance
-  for (int p = 0; p < 10; p++) {
+  for (int p = 0; p < 20; p++) {
     userPages[p] = getUserList(p);
     char firstchar = userPages[p].charAt(0);
     if (int(firstchar) != 22 ) userPages[p] = "";

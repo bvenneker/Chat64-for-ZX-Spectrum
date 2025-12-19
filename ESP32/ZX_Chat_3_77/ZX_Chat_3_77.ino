@@ -265,7 +265,7 @@ void loop() {
     ready_to_receive(false);  // flow controll
 
 #ifdef debug
-    //Serial.printf("incoming command: %d\n", ch);
+    Serial.printf("incoming command: %d\n", ch);
 #endif
 
     //
@@ -310,6 +310,7 @@ void loop() {
     // 128 = end marker, ignore
 
     switch (ch) {
+
       case 254:
         {
           // ------------------------------------------------------------------------------
@@ -915,7 +916,7 @@ void loop() {
           // all done, send end byte
           sendByte(128);
           userpageCount++;
-          if (userpageCount > 9) userpageCount = 8;
+          if (userpageCount > 19) userpageCount = 18;
           break;
         }
       case 232:

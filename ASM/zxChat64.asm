@@ -2566,9 +2566,9 @@ sb_exit                                 ;
 ; ---------------------------------------------------------------------
 ; Check for updates                     ;
 ; ---------------------------------------------------------------------
-check_for_updates:                      ;
-  ld a, (CHECK_UPDATE)                  ;
-  cp 0                                  ;
+check_for_updates:                      ; CHECK_UPDATE = 0 : do not check
+  ld a, (CHECK_UPDATE)                  ; CHECK_UPDATE = 1 : keep checking
+  cp 0                                  ; CHECK_UPDATE = 2 : update available
   jr z, cu_exit                         ;
   cp 2                                  ;
   jr z, cu_exit                         ;
@@ -2826,7 +2826,7 @@ MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
 MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.85     "
-VERSION_DATE:  DB AT, 0,27,"10/25",128
+VERSION_DATE:  DB AT, 0,27,"11/25",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
