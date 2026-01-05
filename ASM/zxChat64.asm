@@ -793,13 +793,13 @@ main_menu:                              ;
   ld (ESCAPE),a                         ;
   ld a,(EMUMODE)                        ;
   cp 1                                  ;
-  jp z,emulation1                            ;
+  jp z,emulation1                       ;
   call get_status                       ;
   ld a,(CHECK_UPDATE)                   ;
   cp 2                                  ;
   call z,update_screen                  ;
                                         ;
-emulation1                                   ;
+emulation1                              ;
   call clear_screen                     ;
   ld DE,MLINES      : CALL PRNTIT       ;
   ld DE,MLINES_MAIN : CALL PRNTIT       ;
@@ -1222,13 +1222,44 @@ save_wifi_settings:                     ;
   ld c,8                                ; time offset starts at line 8
   ld b,22                               ; time offset starts at column 22
   call send_out_line                    ;
-                                        ;
-  ld a,255                              ;
+  ld a,190                              ;
   ld (DELAY_VALUE),a                    ;
-  call long_delay                       ;
-  call long_delay                       ;
-  call long_delay                       ;
-  call long_delay                       ;
+  ld DE,WAITFORWIFI + 30
+  ld a,'1'
+  ld (DE),a
+  inc DE
+  ld a,'0'
+  ld (DE),a
+  
+  ld DE,WAITFORWIFI
+  call PRNTIT                           ;
+  ld a,57
+  ld (COUNT1),a  
+  
+countdown:  
+  call sound_click
+  call delay                            ;
+  call delay                            ;
+  call delay
+  ld DE,WAITFORWIFI + 30
+  ld a,32
+  ld (DE),a
+  inc DE
+  ld a,(COUNT1)
+  ld (DE),a
+  dec a
+  cp 47
+  jp z,wifi_setup
+  ld (COUNT1),a
+  ld b,248                              ; ask the wifi connection status
+  ld DE,WAITFORWIFI
+  call PRNTIT                           ;
+  call send_start_byte_ff               ; after this call, the RXBUFFER contains the connection status
+  ld DE,RXBUFFER                        ;
+  ld a,(DE)                             ;
+  cp 'C'                                ;
+  jp nz, countdown 
+
   jp wifi_setup                         ;
                                         ;
 ; ---------------------------------------------------------------------
@@ -1955,11 +1986,14 @@ sound_click2:                           ;
                                         ;
 sound_bell2:                            ;
   PUSH AF                               ;
-  ld DE, 30                             ;
-  ld HL, 2800                           ;
-  call $03B5                            ;
-  ld DE, 60                             ;
+  ld DE, 15                             ;
   ld HL, 1800                           ;
+  call $03B5                            ;
+  ld DE, 15                             ;
+  ld HL, 1700                           ;
+  call $03B5                            ;
+  ld DE, 30                             ;
+  ld HL, 1200                           ;
   call $03B5                            ;
   POP AF                                ;
   ret                                   ;
@@ -2756,6 +2790,7 @@ VERSION:  .BYTE "3.81",128  // ALSO CHANGE VERSION IN COMMON.H,
                            
 NOCART: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
 
+WAITFORWIFI: DB AT, 21,0,INK,yellow,BRIGHT,1,"     Waiting for WiFi: 10      ",128;
 DLINE: DB AT, 20,0, INK, white, PAPER, 0, BRIGHT,0
   BLOCK 32,$90                          ;
   DB 128                                
@@ -2880,8 +2915,9 @@ update_bar: DB AT,11,0,INVERSE,0,PAPER,black,BRIGHT,0,INK,yellow,"Installing new
   BLOCK 30,$9c
   DB $A3,128
 
+
 text_update_done: DB AT,17,0,BRIGHT,1,INK,yellow,INVERSE,0,"Update done!",128            
-                                                                     
+COUNT1: db 10;                                                                     
 black:   .equ %000000    
 blue:    .equ %000001    
 red:     .equ %000010    

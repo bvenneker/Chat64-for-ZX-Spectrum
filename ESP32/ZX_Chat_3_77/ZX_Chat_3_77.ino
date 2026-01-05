@@ -465,7 +465,7 @@ void loop() {
 
 
           String Encoded = my_base64_encode(buff, buflen);
-
+          Encoded = urlEncode(Encoded);
           // Now send it with retry!
           bool sc = false;
           int retry = 0;
@@ -561,7 +561,6 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 248 = Computer ask for the wifi connection status
           // ------------------------------------------------------------------------------
-
           if (!isWifiCoreConnected) {
             digitalWrite(CLED, LOW);
             sendByte(16);  // INK
@@ -570,8 +569,6 @@ void loop() {
           } else {
             wificonnected = 1;
             digitalWrite(CLED, HIGH);
-            sendByte(16);  // INK
-            sendByte(4);   // GREEN
             String wifi_status = "Connected, ip: " + myLocalIp;
             send_String_to_Bus(wifi_status);
             if (configured == "empty") {
@@ -1383,4 +1380,21 @@ void myShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val
     delayMicroseconds(10);
     digitalWrite(clockPin, LOW);
   }
+}
+
+String urlEncode(const String &s)
+{
+    String out;
+    char hex[4];
+
+    for (size_t i = 0; i < s.length(); i++) {
+        char c = s[i];
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+            out += c;
+        } else {
+            sprintf(hex, "%%%02X", (unsigned char)c);
+            out += hex;
+        }
+    }
+    return out;
 }
