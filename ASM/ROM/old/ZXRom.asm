@@ -1,17 +1,21 @@
-;*********************************************************************************
-;** ZX SPectrum ROM for the Chat64 Cartridge                                    **
-;** Based on this ROM: https://github.com/reclaimed/prettybasic/tree/master/doc **
-;** Modifications:
-;** - Bootloader in stead of main edit loop
-;** - NMI routine
-;** - New Character set (bolder characters)
-;** Compile with SJAMSPLUS
-;*********************************************************************************
-  DEVICE ZXSPECTRUM48
-; --------------------------
-; Last updated: 30-SEPT-2025
-; --------------------------
-CHAT64START=$6000  
+;************************************************************************
+;** An Assembly File Listing to generate a 16K ROM for the ZX Spectrum **
+;************************************************************************
+
+; -------------------------
+; Last updated: 13-DEC-2004
+; -------------------------
+
+; TASM cross-assembler directives. 
+; ( comment out, perhaps, for other assemblers - see Notes at end.)
+
+;#define DEFB .BYTE      
+;#define DEFW .WORD
+;#define DEFM .TEXT
+;#define ORG  .ORG
+;#define EQU  .EQU
+;#define equ  .EQU
+
 ;   It is always a good idea to anchor, using ORGs, important sections such as 
 ;   the character bitmaps so that they don't move as code is added and removed.
 
@@ -216,24 +220,47 @@ L0055:  LD      (IY+$00),L      ; Store it in the system variable ERR_NR.
 ; ------------------------------------
 ; THE 'NON-MASKABLE INTERRUPT' ROUTINE
 ; ------------------------------------
-; New
-; Bart Venneker created this small NMI routine
-; For the Chat64 ROM
-  ORG $0066
-L0066:
-  push af
-  push bc
-  push de
-  push hl
-  push ix
-  push iy
-                           
-  ld HL,($5CB0)                     ; Read the nmi vector
-  jp HL                             ; Jump to the NMI routine
+;   New
+;   There is no NMI switch on the standard Spectrum or its peripherals.
+;   When the NMI line is held low, then no matter what the Z80 was doing at 
+;   the time, it will now execute the code at 66 Hex.
+;   This Interrupt Service Routine will jump to location zero if the contents 
+;   of the system variable NMIADD are zero or return if the location holds a
+;   non-zero address.   So attaching a simple switch to the NMI as in the book 
+;   "Spectrum Hardware Manual" causes a reset.  The logic was obviously 
+;   intended to work the other way.  Sinclair Research said that, since they
+;   had never advertised the NMI, they had no plans to fix the error "until 
+;   the opportunity arose".
+;   
+;   Note. The location NMIADD was, in fact, later used by Sinclair Research 
+;   to enhance the text channel on the ZX Interface 1.
+;   On later Amstrad-made Spectrums, and the Brazilian Spectrum, the logic of 
+;   this routine was indeed reversed but not as at first intended.
+;
+;   It can be deduced by looking elsewhere in this ROM that the NMIADD system
+;   variable pointed to L121C and that this enabled a Warm Restart to be 
+;   performed at any time, even while playing machine code games, or while 
+;   another Spectrum has been allowed to gain control of this one. 
+;
+;   Software houses would have been able to protect their games from attack by
+;   placing two zeros in the NMIADD system variable.
 
- 
-L0070:
- DEFB $FF,$FF
+;; RESET
+L0066:  PUSH    AF              ; save the
+        PUSH    HL              ; registers.
+        LD      HL,($5CB0)      ; fetch the system variable NMIADD.
+        LD      A,H             ; test address
+        OR      L               ; for zero.
+
+        JR      NZ,L0070        ; skip to NO-RESET if NOT ZERO
+
+        JP      (HL)            ; jump to routine ( i.e. L0000 )
+
+;; NO-RESET
+L0070:  POP     HL              ; restore the
+        POP     AF              ; registers.
+        RETN                    ; return to previous interrupt state.
+
 ; ---------------------------
 ; THE 'CH ADD + 1' SUBROUTINE
 ; ---------------------------
@@ -244,7 +271,6 @@ L0070:
 ;   Both TEMP-PTR1 and TEMP-PTR2 are used by the READ command routine.
 
 ;; CH-ADD+1
- ORG $0074 
 L0074:  LD      HL,($5C5D)      ; fetch address from CH_ADD.
 
 ;; TEMP-PTR1
@@ -1966,120 +1992,200 @@ L05ED:  INC     B               ; increment the time-out counter.
 ; ---------------------------------
 ; Entry point for all tape commands
 ; ---------------------------------
-; Bart Venneker removed these routines
-; to make room for the Chat64 Bootloader
-  ORG $0605
-  // $5C49 = 1 receive border color  
-  // $5C49 = 5 data length, low byte   (e register)
-  // $5C49 = 6 data length, high byte  (d register)
-  // $5C49 = 7 write program bytes
-  // $5C49 = 0 run the program 
+;   This is the single entry point for the four tape commands.
+;   The routine first determines in what context it has been called by examining
+;   the low byte of the Syntax table entry which was stored in T_ADDR.
+;   Subtracting $EO (the present arrangement) gives a value of
+;   $00 - SAVE
+;   $01 - LOAD
+;   $02 - VERIFY
+;   $03 - MERGE
+;   As with all commands the address STMT-RET is on the stack.
 
-  // $5B02 = low byte data length
-  // $5B03 = high byte data length
-  // $5B04 = low byte data address  
+;; SAVE-ETC
+L0605:  POP     AF              ; discard address STMT-RET.
+        LD      A,($5C74)       ; fetch T_ADDR
 
-  // $5B05 = high byte data address  
+;   Now reduce the low byte of the Syntax table entry to give command.
+;   Note. For ZASM use SUB $E0 as next instruction.
 
-  ld a, ($5C49)
-  cp 0
-  jp z, exit_nmi
-  cp 1
-  jp z, do_border_color
-  cp 5
-  jp z, do_data_length_LB
-  cp 6
-  jp z, do_data_length_HB
-  cp 7
-  jp z, do_program_bytes
-  
-  jp exit_nmi
-  
+L0609:  SUB     L1ADF + 1 % 256 ; subtract the known offset.
+                                ; ( is SUB $E0 in standard ROM )
 
-do_border_color
-  ld a,5                            ; set address $5C49 to 5 for the next 
-  ld ($5C49),a                      ; time NMI is triggered
-  in a,($00CB)                      ; Load a byte from the cartridge port into accumulator
-  call $229B                        ; change the border color
-  jp exit_nmi                       ; jump to exit nmi routine
-  
-do_data_length_LB                   ; receive data length low byte
-  in a,($00CB)                      ; Load a byte from the cartridge port into a
-  ld ($5B02),a                      ; Data length goes into DE, so E is the low byte
-  ld a,6                            ; set address $5C49 to 6 for the next
-  ld ($5C49),a                      ; time NMI is triggered
-  jp exit_nmi                       ; jump to exit nmi routine
-  
-do_data_length_HB                   ; receive data length high byte
-  in a,($00CB)                      ; Load a byte from the cartridge port into a
-  ld ($5B03),a                      ; Data length goes into DE, so D is the high byte
-  ld a,7                            ; set address $5C49 to 7 for the next
-  ld ($5C49),a                      ; time NMI is triggered
+        LD      ($5C74),A       ; and put back in T_ADDR as 0,1,2, or 3
+                                ; for future reference.
 
-  ld BC,CHAT64START                 ; set the start address of our program
-  ld a,b
-  ld ($5B05),a                      ; store the high and low byte in addresses
-  ld a,c                            ; $5B04 and $5B05
-  ld ($5B04),a
-  jp exit_nmi                       ; jump to exit nmi routine
+        CALL    L1C8C           ; routine EXPT-EXP checks that a string
+                                ; expression follows and stacks the
+                                ; parameters in run-time.
 
-do_program_bytes                    ; receive all program bytes 
-  ld a,($5B05)                      ; set BC from addresses $5B04 and $5B05
-  ld b,a
-  ld a,($5B04)
-  ld c,a
-  
-  in a,($00CB)                      ; Load a byte from the cartridge port into a
-  ld (BC),a                         ; store the byte in BC 
-  inc BC                            ; increase BC for the next round
-  ld a,b
-  ld ($5B05),a
-  ld a,c
-  ld ($5B04),a
-  
-  ld a,($5B02)
-  ld E,a
-  ld a,($5B03)
-  ld D,a
-  dec DE                            ; decrease DE (data length) so we now when it is finished
-  ld a,e
-  ld ($5B02),a
-  ld a,d
-  ld ($5B03),a
-  ld a,d                            ; load d in accumulator
-  or e                              ; or operation on a with e, this will only result in zero
-  jp nz, exit_nmi                   ; if both d and e are zero
-  ld a,0                            ; 
-  ld ($5C49),a                      ; set address $5C49 to 0 so the main program knows we are done 
+        CALL    L2530           ; routine SYNTAX-Z
+        JR      Z,L0652         ; forward to SA-DATA if checking syntax.
 
-exit_nmi:
-  pop iy
-  pop ix
-  pop hl
-  pop de
-  pop bc
-  pop af
-  retn 
-  defb $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
-  
-L0605:   ; all removed
-L0609:   ; to make room for the routine above (Chat64 Bootloader)
-L0621:  
-L0629:  
-L0642:  
-L0644:  
-L064B:  
-L0652:  
-L0670:
-L0672:  
-L0685:
-L068F:
-L0692:  
+        LD      BC,$0011        ; presume seventeen bytes for a header.
+        LD      A,($5C74)       ; fetch command from T_ADDR.
+        AND     A               ; test for zero - SAVE.
+        JR      Z,L0621         ; forward to SA-SPACE if so.
+
+        LD      C,$22           ; else double length to thirty four.
+
+;; SA-SPACE
+L0621:  RST     30H             ; BC-SPACES creates 17/34 bytes in workspace.
+
+        PUSH    DE              ; transfer the start of new space to
+        POP     IX              ; the available index register.
+
+;   ten spaces are required for the default filename but it is simpler to
+;   overwrite the first file-type indicator byte as well.
+
+        LD      B,$0B           ; set counter to eleven.
+        LD      A,$20           ; prepare a space.
+
+;; SA-BLANK
+L0629:  LD      (DE),A          ; set workspace location to space.
+        INC     DE              ; next location.
+        DJNZ    L0629           ; loop back to SA-BLANK till all eleven done.
+
+        LD      (IX+$01),$FF    ; set first byte of ten character filename
+                                ; to $FF as a default to signal null string.
+
+        CALL    L2BF1           ; routine STK-FETCH fetches the filename
+                                ; parameters from the calculator stack.
+                                ; length of string in BC.
+                                ; start of string in DE.
+
+        LD      HL,$FFF6        ; prepare the value minus ten.
+        DEC     BC              ; decrement length.
+                                ; ten becomes nine, zero becomes $FFFF.
+        ADD     HL,BC           ; trial addition.
+        INC     BC              ; restore true length.
+        JR      NC,L064B        ; forward to SA-NAME if length is one to ten.
+
+;   the filename is more than ten characters in length or the null string.
+
+        LD      A,($5C74)       ; fetch command from T_ADDR.
+        AND     A               ; test for zero - SAVE.
+        JR      NZ,L0644        ; forward to SA-NULL if not the SAVE command.
+
+;   but no more than ten characters are allowed for SAVE.
+;   The first ten characters of any other command parameter are acceptable.
+;   Weird, but necessary, if saving to sectors.
+;   Note. the golden rule that there are no restriction on anything is broken.
+
+;; REPORT-Fa
+L0642:  RST     08H             ; ERROR-1
+        DEFB    $0E             ; Error Report: Invalid file name
+
+;   continue with LOAD, MERGE, VERIFY and also SAVE within ten character limit.
+
+;; SA-NULL
+L0644:  LD      A,B             ; test length of filename
+        OR      C               ; for zero.
+        JR      Z,L0652         ; forward to SA-DATA if so using the 255 
+                                ; indicator followed by spaces.
+
+        LD      BC,$000A        ; else trim length to ten.
+
+;   other paths rejoin here with BC holding length in range 1 - 10.
+
+;; SA-NAME
+L064B:  PUSH    IX              ; push start of file descriptor.
+        POP     HL              ; and pop into HL.
+
+        INC     HL              ; HL now addresses first byte of filename.
+        EX      DE,HL           ; transfer destination address to DE, start
+                                ; of string in command to HL.
+        LDIR                    ; copy up to ten bytes
+                                ; if less than ten then trailing spaces follow.
+
+;   the case for the null string rejoins here.
+
+;; SA-DATA
+L0652:  RST     18H             ; GET-CHAR
+        CP      $E4             ; is character after filename the token 'DATA' ?
+        JR      NZ,L06A0        ; forward to SA-SCR$ to consider SCREEN$ if
+                                ; not.
+
+;   continue to consider DATA.
+
+        LD      A,($5C74)       ; fetch command from T_ADDR
+        CP      $03             ; is it 'VERIFY' ?
+        JP      Z,L1C8A         ; jump forward to REPORT-C if so.
+                                ; 'Nonsense in BASIC'
+                                ; VERIFY "d" DATA is not allowed.
+
+;   continue with SAVE, LOAD, MERGE of DATA.
+
+        RST     20H             ; NEXT-CHAR
+        CALL    L28B2           ; routine LOOK-VARS searches variables area
+                                ; returning with carry reset if found or
+                                ; checking syntax.
+        SET     7,C             ; this converts a simple string to a 
+                                ; string array. The test for an array or string
+                                ; comes later.
+        JR      NC,L0672        ; forward to SA-V-OLD if variable found.
+
+        LD      HL,$0000        ; set destination to zero as not fixed.
+        LD      A,($5C74)       ; fetch command from T_ADDR
+        DEC     A               ; test for 1 - LOAD
+        JR      Z,L0685         ; forward to SA-V-NEW with LOAD DATA.
+                                ; to load a new array.
+
+;   otherwise the variable was not found in run-time with SAVE/MERGE.
+
+;; REPORT-2a
+L0670:  RST     08H             ; ERROR-1
+        DEFB    $01             ; Error Report: Variable not found
+
+;   continue with SAVE/LOAD  DATA
+
+;; SA-V-OLD
+L0672:  JP      NZ,L1C8A        ; to REPORT-C if not an array variable.
+                                ; or erroneously a simple string.
+                                ; 'Nonsense in BASIC'
+
+
+        CALL    L2530           ; routine SYNTAX-Z
+        JR      Z,L0692         ; forward to SA-DATA-1 if checking syntax.
+
+        INC     HL              ; step past single character variable name.
+        LD      A,(HL)          ; fetch low byte of length.
+        LD      (IX+$0B),A      ; place in descriptor.
+        INC     HL              ; point to high byte.
+        LD      A,(HL)          ; and transfer that
+        LD      (IX+$0C),A      ; to descriptor.
+        INC     HL              ; increase pointer within variable.
+
+;; SA-V-NEW
+L0685:  LD      (IX+$0E),C      ; place character array name in  header.
+        LD      A,$01           ; default to type numeric.
+        BIT     6,C             ; test result from look-vars.
+        JR      Z,L068F         ; forward to SA-V-TYPE if numeric.
+
+        INC     A               ; set type to 2 - string array.
+
+;; SA-V-TYPE
+L068F:  LD      (IX+$00),A      ; place type 0, 1 or 2 in descriptor.
+
+;; SA-DATA-1
+L0692:  EX      DE,HL           ; save var pointer in DE
+
+        RST     20H             ; NEXT-CHAR
+        CP      $29             ; is character ')' ?
+        JR      NZ,L0672        ; back if not to SA-V-OLD to report
+                                ; 'Nonsense in BASIC'
+
+        RST     20H             ; NEXT-CHAR advances character address.
+        CALL    L1BEE           ; routine CHECK-END errors if not end of
+                                ; the statement.
+
+        EX      DE,HL           ; bring back variables data pointer.
+        JP      L075A           ; jump forward to SA-ALL
+
 ; ---
 ;   the branch was here to consider a 'SCREEN$', the display file.
 
 ;; SA-SCR$
- org $06A0
 L06A0:  CP      $AA             ; is character the token 'SCREEN$' ?
         JR      NZ,L06C3        ; forward to SA-CODE if not.
 
@@ -2107,7 +2213,7 @@ L06A0:  CP      $AA             ; is character the token 'SCREEN$' ?
 ; ---
 ;   the branch was here to consider CODE.
 
-;; SA-CODE 
+;; SA-CODE
 L06C3:  CP      $AF             ; is character the token 'CODE' ?
         JR      NZ,L0716        ; forward if not to SA-LINE to consider an
                                 ; auto-started BASIC program.
@@ -5503,8 +5609,7 @@ L121C:
 ; -------------------------
 ; THE 'MAIN EXECUTION LOOP'
 ; -------------------------
-; Bart Venneker changed this routine for the Chat64 ROM
-; The main basic loop now contains a Bootloader
+;
 ;
 
 ;; MAIN-EXEC
@@ -5513,85 +5618,136 @@ L12A2:  LD      (IY+$31),$02    ; set DF_SZ lower screen display file size to
         CALL    L1795           ; routine AUTO-LIST
 
 ;; MAIN-1
- org $12A9
-L12A9: 
-  call $16B0
-  LD A,$00
-  CALL $1601
-BlackScreen
-  ld a, 0 | 6                  ; clear the screen. Set paper to Black, INK to yellow,  
-  ld hl, $5800                 ; start at attribute start
-  ld de, $5800 + 1             ; copy to next address in attributes
-  ld bc, $300 - 1              ; 'loop' attribute size minus 1 times
-  ld (hl), a                   ; initialize the first attribute
-  ldir                         ; fill the attributes  
-  ld HL,$0605                       ; point the NMI vector to a new location in ROM
-  ld ($5CB0),HL                     ; NMI now points to 0605 (we rewrote that code too)
+L12A9:  CALL    L16B0           ; routine SET-MIN clears work areas.
 
-  
-  ; bootloader code starts here:  
-  ld a,1                            ; bootloader Mode 1
-  ld ($5C49),a                      ; 
-  
+;; MAIN-2
+L12AC:  LD      A,$00           ; select channel 'K' the keyboard
 
-  ld a,2
-  call $1601                        ; open channel 2 (top of screen)
+        CALL    L1601           ; routine CHAN-OPEN opens it
 
-  LD DE,text1
-  call PRNTIT
+        CALL    L0F2C           ; routine EDITOR is called.
+                                ; Note the above routine is where the Spectrum
+                                ; waits for user-interaction. Perhaps the
+                                ; most common input at this stage
+                                ; is LOAD "".
 
-  ld a, 100                         ; tell the ESP32 we are ready to receive data
-  out ($00CB),a                     ; Send 100 to the cartridge                   
-  
-  
-wait                                ; 
-  LD a,($5C48)                      ; load border color
-  OUT ($FE),a                       ; set border color
-  inc a                             ; increase a
-  and %00000101                     ; and operation to select specific bytes (1,4,and 5)
-  LD ($5C48),a                      ; store as new border color
-  
-  ld a,($5C49)
-  cp 1
-  jr nz,no_delay
-  
-  ld b,214
-mdelay  
-  dec b  
-  jp nz, mdelay
+        CALL    L1B17           ; routine LINE-SCAN scans the input.
 
-no_delay                            ; All the magic happens in the NMI routine at Rom address $0066
-  ld a,($5C49)                      ; So we just wait here until address $5C49 becomes
-  cp 0                              ; zero 
-  jp nz, wait                       ;
+        BIT     7,(IY+$00)      ; test ERR_NR - will be $FF if syntax is OK.
+        JR      NZ,L12CF        ; forward, if correct, to MAIN-3.
 
-  LD DE,text2
-  call PRNTIT  
-  
-run                                 ; when we break out of the above loop
-  jp CHAT64START                    ; we end up here, so we jump to the start of the program
-     
+; 
 
-PRNTIT
-    LD A, (DE)                      ; Get the character
-    CP 255                          ; CP with 255
-    RET Z                           ; Ret if it is zero
-    RST $10                         ; Otherwise print the character
-    INC DE                          ; Inc to the next character in the string
-    JR PRNTIT                       ; Loop 
-    
-  DB $FF  
-text1            ; "12345678901234567890123456789012"
-  DB $11,0,$16,4,2,$10,6,"Bootloader, loading from ESP  ",255
-text2
-  DB $16,20,0,$10,0,"Done.",255
+        BIT     4,(IY+$30)      ; test FLAGS2 - K channel in use ?
+        JR      Z,L1303         ; forward to MAIN-4 if not.
 
-L12AC:
-L12CF:  
-L1303:  
-L1313:  
- 
- org $133C
+;
+
+        LD      HL,($5C59)      ; an editing error so address E_LINE.
+        CALL    L11A7           ; routine REMOVE-FP removes the hidden
+                                ; floating-point forms.
+        LD      (IY+$00),$FF    ; system variable ERR_NR is reset to 'OK'.
+        JR      L12AC           ; back to MAIN-2 to allow user to correct.
+
+; ---
+
+; the branch was here if syntax has passed test.
+
+;; MAIN-3
+L12CF:  LD      HL,($5C59)      ; fetch the edit line address from E_LINE.
+
+        LD      ($5C5D),HL      ; system variable CH_ADD is set to first
+                                ; character of edit line.
+                                ; Note. the above two instructions are a little
+                                ; inadequate. 
+                                ; They are repeated with a subtle difference 
+                                ; at the start of the next subroutine and are 
+                                ; therefore not required above.
+
+        CALL    L19FB           ; routine E-LINE-NO will fetch any line
+                                ; number to BC if this is a program line.
+
+        LD      A,B             ; test if the number of
+        OR      C               ; the line is non-zero.
+        JP      NZ,L155D        ; jump forward to MAIN-ADD if so to add the 
+                                ; line to the BASIC program.
+
+; Has the user just pressed the ENTER key ?
+
+        RST     18H             ; GET-CHAR gets character addressed by CH_ADD.
+        CP      $0D             ; is it a carriage return ?
+        JR      Z,L12A2         ; back to MAIN-EXEC if so for an automatic
+                                ; listing.
+
+; this must be a direct command.
+
+        BIT     0,(IY+$30)      ; test FLAGS2 - clear the main screen ?
+
+        CALL    NZ,L0DAF        ; routine CL-ALL, if so, e.g. after listing.
+
+        CALL    L0D6E           ; routine CLS-LOWER anyway.
+
+        LD      A,$19           ; compute scroll count as 25 minus
+        SUB     (IY+$4F)        ; value of S_POSN_hi.
+        LD      ($5C8C),A       ; update SCR_CT system variable.
+        SET     7,(IY+$01)      ; update FLAGS - signal running program.
+        LD      (IY+$00),$FF    ; set ERR_NR to 'OK'.
+        LD      (IY+$0A),$01    ; set NSPPC to one for first statement.
+        CALL    L1B8A           ; call routine LINE-RUN to run the line.
+                                ; sysvar ERR_SP therefore addresses MAIN-4
+
+; Examples of direct commands are RUN, CLS, LOAD "", PRINT USR 40000,
+; LPRINT "A"; etc..
+; If a user written machine-code program disables interrupts then it
+; must enable them to pass the next step. We also jumped to here if the
+; keyboard was not being used.
+
+;; MAIN-4
+L1303:  HALT                    ; wait for interrupt the only routine that can
+                                ; set bit 5 of FLAGS.
+
+        RES     5,(IY+$01)      ; update bit 5 of FLAGS - signal no new key.
+
+        BIT     1,(IY+$30)      ; test FLAGS2 - is printer buffer clear ?
+        CALL    NZ,L0ECD        ; call routine COPY-BUFF if not.
+                                ; Note. the programmer has neglected
+                                ; to set bit 1 of FLAGS first.
+
+        LD      A,($5C3A)       ; fetch ERR_NR
+        INC     A               ; increment to give true code.
+
+; Now deal with a runtime error as opposed to an editing error.
+; However if the error code is now zero then the OK message will be printed.
+
+;; MAIN-G
+L1313:  PUSH    AF              ; save the error number.
+
+        LD      HL,$0000        ; prepare to clear some system variables.
+        LD      (IY+$37),H      ; clear all the bits of FLAGX.
+        LD      (IY+$26),H      ; blank X_PTR_hi to suppress error marker.
+        LD      ($5C0B),HL      ; blank DEFADD to signal that no defined
+                                ; function is currently being evaluated.
+
+        LD      HL,$0001        ; explicit - inc hl would do.
+        LD      ($5C16),HL      ; ensure STRMS-00 is keyboard.
+
+        CALL    L16B0           ; routine SET-MIN clears workspace etc.
+        RES     5,(IY+$37)      ; update FLAGX - signal in EDIT not INPUT mode.
+                                ; Note. all the bits were reset earlier.
+
+        CALL    L0D6E           ; call routine CLS-LOWER.
+
+        SET     5,(IY+$02)      ; update TV_FLAG - signal lower screen
+                                ; requires clearing.
+
+        POP     AF              ; bring back the true error number
+        LD      B,A             ; and make a copy in B.
+        CP      $0A             ; is it a print-ready digit ?
+        JR      C,L133C         ; forward to MAIN-5 if so.
+
+        ADD     A,$07           ; add ASCII offset to letters.
+
+;; MAIN-5
 L133C:  CALL    L15EF           ; call routine OUT-CODE to print the code.
 
         LD      A,$20           ; followed by a space.
@@ -5734,9 +5890,9 @@ L1391:  DEFB    $80
 ;; comma-sp   
 L1537:  DEFB    ',',' '+$80                             ; used in report line.
 ;; copyright
-L1539:  DEFB    $20                                     ; copyright
-        DEFM    "                          "
-        DEFB    ' '+$80
+L1539:  DEFB    $7F                                     ; copyright
+        DEFM    " 1982 Sinclair Research Lt"
+        DEFB    'd'+$80
 
 
 ; -------------
@@ -7180,7 +7336,7 @@ L192B:  ADD     HL,BC           ; add negative number to HL.
 ; Outputting characters in a BASIC line
 ; -------------------------------------
 ; This subroutine ...
-
+	
 ;; OUT-CHAR
 L1937:  CALL    L2D1B           ; routine NUMERIC tests if it is a digit ?
         JR      NC,L196C        ; to OUT-CH-3 to print digit without
@@ -8502,7 +8658,7 @@ L1C96:  BIT     7,(IY+$01)      ; test FLAGS - checking syntax only ?
 
 ; Note. For ZASM assembler replace following expression with SUB $13.
 
-L1CA5:  SUB  $13 ;;;   L1AEB-$D8 % 256 ; convert $EB to $D8 ('INK') etc.
+L1CA5:  SUB     L1AEB-$D8 % 256 ; convert $EB to $D8 ('INK') etc.
                                 ; ( is SUB $13 in standard ROM )
 
         CALL    L21FC           ; routine CO-TEMP-4
@@ -18939,7 +19095,6 @@ L386C:  DEFB    $38             ;;end-calc              last value is 1 or 0.
 ; ---------------------
 
 ;; spare
- org $386E
 L386E:  DEFB    $FF, $FF        ;
 
 
@@ -19090,840 +19245,1073 @@ L386E:  DEFB    $FF, $FF        ;
         DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
         DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
 
-
+ORG $3D00
 
 ; -------------------------------
 ; THE 'ZX SPECTRUM CHARACTER SET'
 ; -------------------------------
-  ORG $3D00
-L3D00:  
-  DB 0,0,0,0,0,0,0,0  ; SPACE
-  ; ----------------    
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 000 ;  
-  ; ----------------      
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;   
-  ; ----------------        
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 255 ; ********
-  DB 102 ;  **  ** 
-  DB 255 ; ********
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;   
-  ; ----------------        
-  DB 024 ;    **   
-  DB 062 ;   ***** 
-  DB 096 ;  **     
-  DB 060 ;   ****  
-  DB 006 ;      ** 
-  DB 124 ;  *****  
-  DB 024 ;    **   
-  DB 000 ;
-  ; ----------------      
-  DB 098 ;  **   * 
-  DB 102 ;  **  ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 102 ;  **  ** 
-  DB 070 ;  *   ** 
-  DB 000 ; 
-  ; ----------------      
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 056 ;   ***   
-  DB 103 ;  **  ***
-  DB 102 ;  **  ** 
-  DB 063 ;   ******
-  DB 000 ;  
-  ; ----------------    
-  DB 006 ;      ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;  
-  ; ----------------    
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 048 ;   **    
-  DB 048 ;   **    
-  DB 024 ;    **   
-  DB 012 ;     **  
-  DB 000 ; 
-  ; ----------------    
-  DB 048 ;   **    
-  DB 024 ;    **   
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 000 ; 
-  ; ----------------    
-  DB 000 ;         
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 255 ; ********
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 000 ;         
-  DB 000 ; 
-  ; ----------------      
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 126 ;  ****** 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 000 ;     
-  ; ----------------    
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 048 ;   ** 
-  ; ----------------    
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 126 ;  ****** 
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;  
-  ; ----------------    
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;  
-  ; ----------------              
-  DB 000 ;         
-  DB 003 ;       **
-  DB 006 ;      ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 096 ;  **     
-  DB 000 ;    
-  ; ----------------    
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 110 ;  ** *** 
-  DB 118 ;  *** ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;      
-  ; ---------------- 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 056 ;   ***   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 126 ;  ****** 
-  DB 000 ;       
-  ; ---------------- 
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 006 ;      ** 
-  DB 012 ;     **  
-  DB 048 ;   **    
-  DB 096 ;  **     
-  DB 126 ;  ****** 
-  DB 000 ; 
-  ; ----------------     
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 006 ;      ** 
-  DB 028 ;    ***  
-  DB 006 ;      ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;      
-  ; ---------------- 
-  DB 006 ;      ** 
-  DB 014 ;     *** 
-  DB 030 ;    **** 
-  DB 102 ;  **  ** 
-  DB 127 ;  *******
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-  DB 000 ; 
-  ; ---------------- 
-  DB 126 ;  ****** 
-  DB 096 ;  **     
-  DB 124 ;  *****  
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ; 
-  ; ---------------- 
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 096 ;  **     
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;   
-  ; ---------------- 
-  DB 126 ;  ****** 
-  DB 102 ;  **  ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;  
-  ; ---------------- 
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;  
-  ; ---------------- 
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 006 ;      ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;   
-  ; ---------------- 
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 000 ; 
-  ; ---------------- 
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 048 ;   **    
-  ; ----------------     
-  DB 014 ;     *** 
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 096 ;  **     
-  DB 048 ;   **    
-  DB 024 ;    **   
-  DB 014 ;     *** 
-  DB 000 ; 
-  ; ---------------- 
-  DB 000 ;         
-  DB 000 ;         
-  DB 126 ;  ****** 
-  DB 000 ;         
-  DB 126 ;  ****** 
-  DB 000 ;         
-  DB 000 ;         
-  DB 000 ;    
-  ; ---------------- 
-  DB 112 ;  ***    
-  DB 024 ;    **   
-  DB 012 ;     **  
-  DB 006 ;      ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 112 ;  ***    
-  DB 000 ;   
-  ; ----------------     
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 006 ;      ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 000 ;   
-  ; ----------------             
-  DB $3c,$66,$6e,$6e,$60,$62,$3c,$00         ; @
-  ; ---------------- 
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 126 ;  ****** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;    
-; --------
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 124 ;  *****  
-  DB 000 ;  
-; --------    
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;
-; --------     
-  DB 120 ;  ****   
-  DB 108 ;  ** **  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 108 ;  ** **  
-  DB 120 ;  ****   
-  DB 000 ;
-; --------      
-  DB 126 ;  ****** 
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 120 ;  ****   
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 126 ;  ****** 
-  DB 000 ;
-; --------       
-  DB 126 ;  ****** 
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 120 ;  ****   
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 000 ;         
-; --------
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 096 ;  **     
-  DB 110 ;  ** *** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 126 ;  ****** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; --------
-  DB 060 ;   ****  
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 000 ;         
-; --------
-  DB 030 ;    **** 
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 108 ;  ** **  
-  DB 056 ;   ***   
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 108 ;  ** **  
-  DB 120 ;  ****   
-  DB 112 ;  ***    
-  DB 120 ;  ****   
-  DB 108 ;  ** **  
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; --------
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 126 ;  ****** 
-  DB 000 ;         
-; --------
-  DB 099 ;  **   **
-  DB 119 ;  *** ***
-  DB 127 ;  *******
-  DB 107 ;  ** * **
-  DB 099 ;  **   **
-  DB 099 ;  **   **
-  DB 099 ;  **   **
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 118 ;  *** ** 
-  DB 126 ;  ****** 
-  DB 126 ;  ****** 
-  DB 110 ;  ** *** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; --------
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;         
-; --------
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 124 ;  *****  
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 000 ;         
-; --------
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 014 ;     *** 
-  DB 000 ;         
-; --------
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 124 ;  *****  
-  DB 120 ;  ****   
-  DB 108 ;  ** **  
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; --------
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 096 ;  **     
-  DB 060 ;   ****  
-  DB 006 ;      ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;         
-; --------
-  DB 126 ;  ****** 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 024 ;    **   
-  DB 000 ;         
-; --------
-  DB 099 ;  **   **
-  DB 099 ;  **   **
-  DB 099 ;  **   **
-  DB 107 ;  ** * **
-  DB 127 ;  *******
-  DB 119 ;  *** ***
-  DB 099 ;  **   **
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; --------
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;         
-; --------
-  DB 126 ;  ****** 
-  DB 006 ;      ** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 096 ;  **     
-  DB 126 ;  ****** 
-  DB 000 ;         
-; --------
-  DB 060 ;   ****  
-  DB 048 ;   **    
-  DB 048 ;   **    
-  DB 048 ;   **    
-  DB 048 ;   **    
-  DB 048 ;   **    
-  DB 060 ;   ****  
-  DB 000 ; 
-  ; ---------------- 
-  DB 000 ;       
-  DB 224 ; ***     
-  DB 112 ;  ***    
-  DB 056 ;   ***   
-  DB 028 ;    ***  
-  DB 014 ;     *** 
-  DB 007 ;      ***
-  DB 000 ;         
-  ; ----------------     
-  DB 060 ;   ****  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 012 ;     **  
-  DB 060 ;   ****  
-  DB 000 ; 
-  ; ----------------     
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 126 ;  ****** 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  ; ----------------     
-  DB 0,0,0,0,0,0,0,0 ; Space Again
-  ; ---------------- 
-;  DB 012 ;     **  
-;  DB 018 ;    *  * 
-;  DB 048 ;   **    
-;  DB 124 ;  *****  
-;  DB 048 ;   **    
-;  DB 098 ;  **   * 
-;  DB 252 ; ******  
-;  DB 000 ;  
-  ; ---------------- 
-  DB 024 ;    **   
-  DB 062 ;   ***** 
-  DB 096 ;  **     
-  DB 060 ;   ****  
-  DB 006 ;      ** 
-  DB 124 ;  *****  
-  DB 024 ;    **   
-  DB 000 ;
-  ; ----------------       
-  DB 000 ;         
-  DB 000 ;         
-  DB 060 ;   ****  
-  DB 006 ;      ** 
-  DB 062 ;   ***** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 000 ;         
-  ; ---------------- 
-  DB 000 ;         
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 124 ;  *****  
-  DB 000 ;         
-  ; ---------------- 
-  DB 000 ;         
-  DB 000 ;         
-  DB 060 ;   ****  
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 060 ;   ****  
-  DB 000 ;         
-  ; ---------------- 
-  DB 000 ;         
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-  DB 062 ;   ***** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 000 ;         
-  ; ---------------- 
-  DB 000 ;         
-  DB 000 ;         
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 126 ;  ****** 
-  DB 096 ;  **     
-  DB 060 ;   ****  
-  DB 000 ;         
-  ; ---------------- 
-  DB 000 ;         
-  DB 014 ;     *** 
-  DB 024 ;    **   
-  DB 062 ;   ***** 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 000 ;         
-  ; ---------------- 
-  DB 000 ;         
-  DB 000 ;         
-  DB 062 ;   ***** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 006 ;      ** 
-  DB 124 ;  *****  
-  ; ---------------- 
-  DB 000 ;         
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 000 ;         
-  DB 056 ;   ***   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 006 ;      ** 
-  DB 000 ;         
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-  DB 060 ;   ****  
-; ------------------ 
-  DB 000 ;         
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 108 ;  ** **  
-  DB 120 ;  ****   
-  DB 108 ;  ** **  
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 056 ;   ***   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 102 ;  **  ** 
-  DB 127 ;  *******
-  DB 127 ;  *******
-  DB 107 ;  ** * **
-  DB 099 ;  **   **
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 124 ;  *****  
-  DB 096 ;  **     
-  DB 096 ;  **     
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 062 ;   ***** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 006 ;      ** 
-  DB 006 ;      ** 
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 124 ;  *****  
-  DB 102 ;  **  ** 
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 096 ;  **     
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 062 ;   ***** 
-  DB 096 ;  **     
-  DB 060 ;   ****  
-  DB 006 ;      ** 
-  DB 124 ;  *****  
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 024 ;    **   
-  DB 126 ;  ****** 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 014 ;     *** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 024 ;    **   
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 099 ;  **   **
-  DB 107 ;  ** * **
-  DB 127 ;  *******
-  DB 062 ;   ***** 
-  DB 054 ;   ** ** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 102 ;  **  ** 
-  DB 060 ;   ****  
-  DB 024 ;    **   
-  DB 060 ;   ****  
-  DB 102 ;  **  ** 
-  DB 000 ;         
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 102 ;  **  ** 
-  DB 062 ;   ***** 
-  DB 012 ;     **  
-  DB 120 ;  ****   
-; ------------------ 
-  DB 000 ;         
-  DB 000 ;         
-  DB 126 ;  ****** 
-  DB 012 ;     **  
-  DB 024 ;    **   
-  DB 048 ;   **    
-  DB 126 ;  ****** 
-  DB 000 ;   
-; ------------------     
-  DB 28, 24, 24, 112, 112, 24, 24, 28; {
-; ------------------ 
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-  DB 024 ;    **   
-; ------------------ 
-  DB 56, 24, 24, 14, 14, 24, 24, 56; }
-; ------------------ 
-  DB 0, 96, 242, 158, 12, 0, 0, 0  ; ~
-; ------------------ 
-  DB %00111100, %01000010,%10011001,%10100001,%10100001,%10011001,%01000010,%00111100
-; ------------------ 
-  
-;  SAVEBIN "ZXBootRom.rom",0,$4000
-  
+
+;; char-set
+
+; $20 - Character: ' '          CHR$(32)
+
+L3D00:  DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+
+; $21 - Character: '!'          CHR$(33)
+
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $22 - Character: '"'          CHR$(34)
+
+        DEFB    %00000000
+        DEFB    %00100100
+        DEFB    %00100100
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+
+; $23 - Character: '#'          CHR$(35)
+
+        DEFB    %00000000
+        DEFB    %00100100
+        DEFB    %01111110
+        DEFB    %00100100
+        DEFB    %00100100
+        DEFB    %01111110
+        DEFB    %00100100
+        DEFB    %00000000
+
+; $24 - Character: '$'          CHR$(36)
+
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00111110
+        DEFB    %00101000
+        DEFB    %00111110
+        DEFB    %00001010
+        DEFB    %00111110
+        DEFB    %00001000
+
+; $25 - Character: '%'          CHR$(37)
+
+        DEFB    %00000000
+        DEFB    %01100010
+        DEFB    %01100100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00100110
+        DEFB    %01000110
+        DEFB    %00000000
+
+; $26 - Character: '&'          CHR$(38)
+
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00101000
+        DEFB    %00010000
+        DEFB    %00101010
+        DEFB    %01000100
+        DEFB    %00111010
+        DEFB    %00000000
+
+; $27 - Character: '''          CHR$(39)
+
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+
+; $28 - Character: '('          CHR$(40)
+
+        DEFB    %00000000
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00000100
+        DEFB    %00000000
+
+; $29 - Character: ')'          CHR$(41)
+
+        DEFB    %00000000
+        DEFB    %00100000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00100000
+        DEFB    %00000000
+
+; $2A - Character: '*'          CHR$(42)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00010100
+        DEFB    %00001000
+        DEFB    %00111110
+        DEFB    %00001000
+        DEFB    %00010100
+        DEFB    %00000000
+
+; $2B - Character: '+'          CHR$(43)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00111110
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00000000
+
+; $2C - Character: ','          CHR$(44)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00010000
+
+; $2D - Character: '-'          CHR$(45)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111110
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+
+; $2E - Character: '.'          CHR$(46)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00011000
+        DEFB    %00011000
+        DEFB    %00000000
+
+; $2F - Character: '/'          CHR$(47)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000010
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00100000
+        DEFB    %00000000
+
+; $30 - Character: '0'          CHR$(48)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000110
+        DEFB    %01001010
+        DEFB    %01010010
+        DEFB    %01100010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $31 - Character: '1'          CHR$(49)
+
+        DEFB    %00000000
+        DEFB    %00011000
+        DEFB    %00101000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00111110
+        DEFB    %00000000
+
+; $32 - Character: '2'          CHR$(50)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %00000010
+        DEFB    %00111100
+        DEFB    %01000000
+        DEFB    %01111110
+        DEFB    %00000000
+
+; $33 - Character: '3'          CHR$(51)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %00001100
+        DEFB    %00000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $34 - Character: '4'          CHR$(52)
+
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00011000
+        DEFB    %00101000
+        DEFB    %01001000
+        DEFB    %01111110
+        DEFB    %00001000
+        DEFB    %00000000
+
+; $35 - Character: '5'          CHR$(53)
+
+        DEFB    %00000000
+        DEFB    %01111110
+        DEFB    %01000000
+        DEFB    %01111100
+        DEFB    %00000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $36 - Character: '6'          CHR$(54)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000000
+        DEFB    %01111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $37 - Character: '7'          CHR$(55)
+
+        DEFB    %00000000
+        DEFB    %01111110
+        DEFB    %00000010
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $38 - Character: '8'          CHR$(56)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $39 - Character: '9'          CHR$(57)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00111110
+        DEFB    %00000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $3A - Character: ':'          CHR$(58)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $3B - Character: ';'          CHR$(59)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00100000
+
+; $3C - Character: '<'          CHR$(60)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00001000
+        DEFB    %00000100
+        DEFB    %00000000
+
+; $3D - Character: '='          CHR$(61)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111110
+        DEFB    %00000000
+        DEFB    %00111110
+        DEFB    %00000000
+        DEFB    %00000000
+
+; $3E - Character: '>'          CHR$(62)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00001000
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $3F - Character: '?'          CHR$(63)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00000000
+
+; $40 - Character: '@'          CHR$(64)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01001010
+        DEFB    %01010110
+        DEFB    %01011110
+        DEFB    %01000000
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $41 - Character: 'A'          CHR$(65)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01111110
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $42 - Character: 'B'          CHR$(66)
+
+        DEFB    %00000000
+        DEFB    %01111100
+        DEFB    %01000010
+        DEFB    %01111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01111100
+        DEFB    %00000000
+
+; $43 - Character: 'C'          CHR$(67)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $44 - Character: 'D'          CHR$(68)
+
+        DEFB    %00000000
+        DEFB    %01111000
+        DEFB    %01000100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000100
+        DEFB    %01111000
+        DEFB    %00000000
+
+; $45 - Character: 'E'          CHR$(69)
+
+        DEFB    %00000000
+        DEFB    %01111110
+        DEFB    %01000000
+        DEFB    %01111100
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01111110
+        DEFB    %00000000
+
+; $46 - Character: 'F'          CHR$(70)
+
+        DEFB    %00000000
+        DEFB    %01111110
+        DEFB    %01000000
+        DEFB    %01111100
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %00000000
+
+; $47 - Character: 'G'          CHR$(71)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000000
+        DEFB    %01001110
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $48 - Character: 'H'          CHR$(72)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01111110
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $49 - Character: 'I'          CHR$(73)
+
+        DEFB    %00000000
+        DEFB    %00111110
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00111110
+        DEFB    %00000000
+
+; $4A - Character: 'J'          CHR$(74)
+
+        DEFB    %00000000
+        DEFB    %00000010
+        DEFB    %00000010
+        DEFB    %00000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $4B - Character: 'K'          CHR$(75)
+
+        DEFB    %00000000
+        DEFB    %01000100
+        DEFB    %01001000
+        DEFB    %01110000
+        DEFB    %01001000
+        DEFB    %01000100
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $4C - Character: 'L'          CHR$(76)
+
+        DEFB    %00000000
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01111110
+        DEFB    %00000000
+
+; $4D - Character: 'M'          CHR$(77)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %01100110
+        DEFB    %01011010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $4E - Character: 'N'          CHR$(78)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %01100010
+        DEFB    %01010010
+        DEFB    %01001010
+        DEFB    %01000110
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $4F - Character: 'O'          CHR$(79)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $50 - Character: 'P'          CHR$(80)
+
+        DEFB    %00000000
+        DEFB    %01111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01111100
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %00000000
+
+; $51 - Character: 'Q'          CHR$(81)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01010010
+        DEFB    %01001010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $52 - Character: 'R'          CHR$(82)
+
+        DEFB    %00000000
+        DEFB    %01111100
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01111100
+        DEFB    %01000100
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $53 - Character: 'S'          CHR$(83)
+
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000000
+        DEFB    %00111100
+        DEFB    %00000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $54 - Character: 'T'          CHR$(84)
+
+        DEFB    %00000000
+        DEFB    %11111110
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $55 - Character: 'U'          CHR$(85)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $56 - Character: 'V'          CHR$(86)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %00100100
+        DEFB    %00011000
+        DEFB    %00000000
+
+; $57 - Character: 'W'          CHR$(87)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01000010
+        DEFB    %01011010
+        DEFB    %00100100
+        DEFB    %00000000
+
+; $58 - Character: 'X'          CHR$(88)
+
+        DEFB    %00000000
+        DEFB    %01000010
+        DEFB    %00100100
+        DEFB    %00011000
+        DEFB    %00011000
+        DEFB    %00100100
+        DEFB    %01000010
+        DEFB    %00000000
+
+; $59 - Character: 'Y'          CHR$(89)
+
+        DEFB    %00000000
+        DEFB    %10000010
+        DEFB    %01000100
+        DEFB    %00101000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $5A - Character: 'Z'          CHR$(90)
+
+        DEFB    %00000000
+        DEFB    %01111110
+        DEFB    %00000100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00100000
+        DEFB    %01111110
+        DEFB    %00000000
+
+; $5B - Character: '['          CHR$(91)
+
+        DEFB    %00000000
+        DEFB    %00001110
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001110
+        DEFB    %00000000
+
+; $5C - Character: '\'          CHR$(92)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01000000
+        DEFB    %00100000
+        DEFB    %00010000
+        DEFB    %00001000
+        DEFB    %00000100
+        DEFB    %00000000
+
+; $5D - Character: ']'          CHR$(93)
+
+        DEFB    %00000000
+        DEFB    %01110000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %01110000
+        DEFB    %00000000
+
+; $5E - Character: '^'          CHR$(94)
+
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00111000
+        DEFB    %01010100
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $5F - Character: '_'          CHR$(95)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %11111111
+
+; $60 - Character: 'ukp'        CHR$(96)
+
+        DEFB    %00000000
+        DEFB    %00011100
+        DEFB    %00100010
+        DEFB    %01111000
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %01111110
+        DEFB    %00000000
+
+; $61 - Character: 'a'          CHR$(97)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111000
+        DEFB    %00000100
+        DEFB    %00111100
+        DEFB    %01000100
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $62 - Character: 'b'          CHR$(98)
+
+        DEFB    %00000000
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %00111100
+        DEFB    %00100010
+        DEFB    %00100010
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $63 - Character: 'c'          CHR$(99)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00011100
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %00011100
+        DEFB    %00000000
+
+; $64 - Character: 'd'          CHR$(100)
+
+        DEFB    %00000000
+        DEFB    %00000100
+        DEFB    %00000100
+        DEFB    %00111100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $65 - Character: 'e'          CHR$(101)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111000
+        DEFB    %01000100
+        DEFB    %01111000
+        DEFB    %01000000
+        DEFB    %00111100
+        DEFB    %00000000
+
+; $66 - Character: 'f'          CHR$(102)
+
+        DEFB    %00000000
+        DEFB    %00001100
+        DEFB    %00010000
+        DEFB    %00011000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $67 - Character: 'g'          CHR$(103)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00111100
+        DEFB    %00000100
+        DEFB    %00111000
+
+; $68 - Character: 'h'          CHR$(104)
+
+        DEFB    %00000000
+        DEFB    %01000000
+        DEFB    %01000000
+        DEFB    %01111000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00000000
+
+; $69 - Character: 'i'          CHR$(105)
+
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00000000
+        DEFB    %00110000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00111000
+        DEFB    %00000000
+
+; $6A - Character: 'j'          CHR$(106)
+
+        DEFB    %00000000
+        DEFB    %00000100
+        DEFB    %00000000
+        DEFB    %00000100
+        DEFB    %00000100
+        DEFB    %00000100
+        DEFB    %00100100
+        DEFB    %00011000
+
+; $6B - Character: 'k'          CHR$(107)
+
+        DEFB    %00000000
+        DEFB    %00100000
+        DEFB    %00101000
+        DEFB    %00110000
+        DEFB    %00110000
+        DEFB    %00101000
+        DEFB    %00100100
+        DEFB    %00000000
+
+; $6C - Character: 'l'          CHR$(108)
+
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00001100
+        DEFB    %00000000
+
+; $6D - Character: 'm'          CHR$(109)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01101000
+        DEFB    %01010100
+        DEFB    %01010100
+        DEFB    %01010100
+        DEFB    %01010100
+        DEFB    %00000000
+
+; $6E - Character: 'n'          CHR$(110)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01111000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00000000
+
+; $6F - Character: 'o'          CHR$(111)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00111000
+        DEFB    %00000000
+
+; $70 - Character: 'p'          CHR$(112)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01111000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01111000
+        DEFB    %01000000
+        DEFB    %01000000
+
+; $71 - Character: 'q'          CHR$(113)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00111100
+        DEFB    %00000100
+        DEFB    %00000110
+
+; $72 - Character: 'r'          CHR$(114)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00011100
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %00100000
+        DEFB    %00000000
+
+; $73 - Character: 's'          CHR$(115)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00111000
+        DEFB    %01000000
+        DEFB    %00111000
+        DEFB    %00000100
+        DEFB    %01111000
+        DEFB    %00000000
+
+; $74 - Character: 't'          CHR$(116)
+
+        DEFB    %00000000
+        DEFB    %00010000
+        DEFB    %00111000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %00001100
+        DEFB    %00000000
+
+; $75 - Character: 'u'          CHR$(117)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00111000
+        DEFB    %00000000
+
+; $76 - Character: 'v'          CHR$(118)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00101000
+        DEFB    %00101000
+        DEFB    %00010000
+        DEFB    %00000000
+
+; $77 - Character: 'w'          CHR$(119)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01000100
+        DEFB    %01010100
+        DEFB    %01010100
+        DEFB    %01010100
+        DEFB    %00101000
+        DEFB    %00000000
+
+; $78 - Character: 'x'          CHR$(120)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01000100
+        DEFB    %00101000
+        DEFB    %00010000
+        DEFB    %00101000
+        DEFB    %01000100
+        DEFB    %00000000
+
+; $79 - Character: 'y'          CHR$(121)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %01000100
+        DEFB    %00111100
+        DEFB    %00000100
+        DEFB    %00111000
+
+; $7A - Character: 'z'          CHR$(122)
+
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %01111100
+        DEFB    %00001000
+        DEFB    %00010000
+        DEFB    %00100000
+        DEFB    %01111100
+        DEFB    %00000000
+
+; $7B - Character: '{'          CHR$(123)
+
+        DEFB    %00000000
+        DEFB    %00001110
+        DEFB    %00001000
+        DEFB    %00110000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001110
+        DEFB    %00000000
+
+; $7C - Character: '|'          CHR$(124)
+
+        DEFB    %00000000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00001000
+        DEFB    %00000000
+
+; $7D - Character: '}'          CHR$(125)
+
+        DEFB    %00000000
+        DEFB    %01110000
+        DEFB    %00010000
+        DEFB    %00001100
+        DEFB    %00010000
+        DEFB    %00010000
+        DEFB    %01110000
+        DEFB    %00000000
+
+; $7E - Character: '~'          CHR$(126)
+
+        DEFB    %00000000
+        DEFB    %00010100
+        DEFB    %00101000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+        DEFB    %00000000
+
+; $7F - Character: '(c)'        CHR$(127)
+
+        DEFB    %00111100
+        DEFB    %01000010
+        DEFB    %10011001
+        DEFB    %10100001
+        DEFB    %10100001
+        DEFB    %10011001
+        DEFB    %01000010
+        DEFB    %00111100
+
+
+#end                            ; generic cross-assembler directive 
+
 ; Acknowledgements
 ; -----------------
 ; Sean Irvine               for default list of section headings
