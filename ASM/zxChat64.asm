@@ -115,6 +115,11 @@ scan_key:                               ;
   call check_for_messages               ;
   call key_input                        ; Get last key pressed
   jp nc,scan_key                        ; If C is clear, keep waiting for key press
+  cp 95
+  jp nz, .next
+  ld a, $9b
+  jp print
+.next
   cp SYMSHFT_I                          ; a key has been pressed
   jp z,do_ink                           ; If Symbol Shift + I, wait for ink color
   cp SYMSHFT_A                          ; If Symbol Shift + A, switch between public and private
@@ -933,6 +938,11 @@ if_key_scan:                            ;
   jp nc, if_key_scan                    ;
   cp ENTER                              ;
   jp z, if_exit                         ;
+  cp 95                                 ; underscore
+  jp nz,.next                           ;
+  ld a,$9b                              ;
+  jr .print_char                        ;
+.next                                   ;
   cp 27                                 ;
   jp z, if_escape                       ;
   cp DELETE                             ; If Delete key, handle the backspace function
@@ -941,6 +951,7 @@ if_key_scan:                            ;
   jp m,if_key_scan                      ; If code < space character, ignore
   cp COPYRIGHT+1                        ;
   jp p,if_key_scan                      ; If code > copyright character, ignore
+.print_char                             ;
   call if_print                         ; Else, print the character
   jp if_key_scan                        ;
                                         ;
@@ -1634,6 +1645,10 @@ send_out_line:                          ;
 sol_read_line                           ;
   push bc                               ;
   call read_from_screen                 ; character from screen goes into A
+  cp $9b
+  jp nz, .send
+  ld a,95
+.send
   call sendbyte                         ; Send A to cartridge port
   pop bc                                ;
   inc b                                 ;
@@ -1904,7 +1919,55 @@ read_message_lines:                     ;
 rm_read_line:                           ;
   call read_from_screen                 ;
   ret                                   ;
-                                        ;
+
+; -------------------------------------------------
+; check if screen character equals custom $9B
+; B = column
+; C = line
+; Z flag set if match
+; -------------------------------------------------
+custom_9b:
+    db %00000000
+    db %00000000
+    db %00000000
+    db %00000000
+    db %00000000
+    db %00000000
+    db %00000000
+    db %11111111
+check_char_9b:
+
+    ; compute screen address  
+
+    ld A,C
+    rrca
+    rrca
+    rrca
+    and $E0
+    xor B
+    ld E,A
+
+    ld A,C
+    and $18
+    xor $40
+    ld D,A          ; DE = screen address
+
+    ld HL,custom_9b
+    ld B,8
+
+chk_loop:
+    ld A,(DE)
+    cp (HL)
+    ret nz          ; mismatch → not $9B
+
+    inc D           ; next screen row (+256)
+    inc HL
+    djnz chk_loop
+
+    ; all rows matched
+    xor A           ; set Z flag
+    ret                                        
+    ;
 ; ---------------------------------------------------------------------
 ; Read char from screen                 ;
 ; B register = column                   ;
@@ -1912,6 +1975,13 @@ rm_read_line:                           ;
 ; result is in A                        ;
 ; ---------------------------------------------------------------------
 read_from_screen:                       ;
+  push bc
+  call check_char_9b
+  pop bc
+  jp nz,.next
+  ld a,95
+  ret
+.next
   ld HL,($5C36)                         ; CHARS plus +0100 gives HL pointing to the character set.
   ld DE,$0100                           ;
   add HL,DE                             ;
@@ -2716,7 +2786,7 @@ Print_String:                           ;
 ; Point to the sond in DE
 ; ld   DE, Song_2  ; point to the song
 ; ---------------------------------------------------------------------
-Play:                                   ;
+Play:                                   
   ld   (ptrSound), DE                   ;
 p2                                      ;
   ld   hl, (ptrSound)                   ; point to the song
@@ -2752,7 +2822,10 @@ nmi_routine:                            ;
   add de,bc                             ;
                                         ;
   in a,(CARTRIDGE_IO)                   ; read a byte from the cartridge
-                                        ;
+  cp 95                                 ;
+  jp nz,.next
+  ld a,$9b
+.next
   ld (de),a                             ;
   cp 128                                ;
   jp z,message_complete                 ;
@@ -2785,7 +2858,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  .BYTE "3.82",128  // ALSO CHANGE VERSION IN COMMON.H, 
+VERSION:  .BYTE "3.83",128  // ALSO CHANGE VERSION IN COMMON.H, 
                             // AND ALSO CHANGE DATE IF NEEDED
                            
 NOCART: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
@@ -2861,7 +2934,7 @@ MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
 MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.85     "
-VERSION_DATE:  DB AT, 0,27,"01/26",128
+VERSION_DATE:  DB AT, 0,27,"03/26",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 

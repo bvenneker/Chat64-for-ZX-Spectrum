@@ -541,7 +541,7 @@ void loop() {
           // ------------------------------------------------------------------------------
           // start byte 251 = Computer ask for the current wifi ssid,password and time offset
           // ------------------------------------------------------------------------------
-          send_String_to_Bus(ssid + char(129) + password + char(129) + timeoffset);
+          send_String_to_Bus(ssid.substring(0, 26) + char(129) + password.substring(0, 22) + char(129) + timeoffset.substring(0, 4));
           break;
         }
 
@@ -975,7 +975,7 @@ void send_String_to_Bus(String s) {
   outbuffersize = s.length() + 1;  // set outbuffer size
   //Serial.print("buffersize= ");
   //Serial.println(outbuffersize);
-  s.toCharArray(outbuffer, outbuffersize);  // place the ssid in the output buffer
+  s.toCharArray(outbuffer, outbuffersize);  // place the string in the output buffer
   send_out_buffer_to_Bus();                 // and send the buffer
 }
 
