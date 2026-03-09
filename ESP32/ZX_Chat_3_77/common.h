@@ -2,10 +2,11 @@
 #define COMMON_H_
 #include "Arduino.h"
 
-#define uromVersion "3.81"
-#define SwVersion "3.86"
+#define uromVersion "3.83"
+#define SwVersion "3.88"
 
 #define debug
+
 #define zxspectrum
 
 

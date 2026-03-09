@@ -11,10 +11,7 @@
 ; --------------------------
 ; Last updated: 30-SEPT-2025
 ; --------------------------
-
 CHAT64START=$6000  
-
-
 ;   It is always a good idea to anchor, using ORGs, important sections such as 
 ;   the character bitmaps so that they don't move as code is added and removed.
 
@@ -234,8 +231,9 @@ L0066:
   ld HL,($5CB0)                     ; Read the nmi vector
   jp HL                             ; Jump to the NMI routine
 
- ORG $0074 
+ 
 L0070:
+ DEFB $FF,$FF
 ; ---------------------------
 ; THE 'CH ADD + 1' SUBROUTINE
 ; ---------------------------
@@ -246,6 +244,7 @@ L0070:
 ;   Both TEMP-PTR1 and TEMP-PTR2 are used by the READ command routine.
 
 ;; CH-ADD+1
+ ORG $0074 
 L0074:  LD      HL,($5C5D)      ; fetch address from CH_ADD.
 
 ;; TEMP-PTR1
@@ -1979,8 +1978,8 @@ L05ED:  INC     B               ; increment the time-out counter.
   // $5B02 = low byte data length
   // $5B03 = high byte data length
   // $5B04 = low byte data address  
-  // $5B05 = high byte data address  
 
+  // $5B05 = high byte data address  
 
   ld a, ($5C49)
   cp 0
@@ -2061,7 +2060,8 @@ exit_nmi:
   pop bc
   pop af
   retn 
-  ORG $06A0 
+  defb $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+  
 L0605:   ; all removed
 L0609:   ; to make room for the routine above (Chat64 Bootloader)
 L0621:  
@@ -2079,6 +2079,7 @@ L0692:
 ;   the branch was here to consider a 'SCREEN$', the display file.
 
 ;; SA-SCR$
+ org $06A0
 L06A0:  CP      $AA             ; is character the token 'SCREEN$' ?
         JR      NZ,L06C3        ; forward to SA-CODE if not.
 
@@ -5517,6 +5518,13 @@ L12A9:
   call $16B0
   LD A,$00
   CALL $1601
+BlackScreen
+  ld a, 0 | 6                  ; clear the screen. Set paper to Black, INK to yellow,  
+  ld hl, $5800                 ; start at attribute start
+  ld de, $5800 + 1             ; copy to next address in attributes
+  ld bc, $300 - 1              ; 'loop' attribute size minus 1 times
+  ld (hl), a                   ; initialize the first attribute
+  ldir                         ; fill the attributes  
   ld HL,$0605                       ; point the NMI vector to a new location in ROM
   ld ($5CB0),HL                     ; NMI now points to 0605 (we rewrote that code too)
 
@@ -5565,27 +5573,24 @@ run                                 ; when we break out of the above loop
      
 
 PRNTIT
-    
     LD A, (DE)                      ; Get the character
     CP 255                          ; CP with 255
     RET Z                           ; Ret if it is zero
     RST $10                         ; Otherwise print the character
     INC DE                          ; Inc to the next character in the string
     JR PRNTIT                       ; Loop 
-  
-  
+    
+  DB $FF  
 text1            ; "12345678901234567890123456789012"
-  DB $16,0,0,$10,0,"Bootloader, loading from ESP    ",255
+  DB $11,0,$16,4,2,$10,6,"Bootloader, loading from ESP  ",255
 text2
   DB $16,20,0,$10,0,"Done.",255
 
-
- 
 L12AC:
 L12CF:  
 L1303:  
 L1313:  
-
+ 
  org $133C
 L133C:  CALL    L15EF           ; call routine OUT-CODE to print the code.
 
@@ -5729,9 +5734,9 @@ L1391:  DEFB    $80
 ;; comma-sp   
 L1537:  DEFB    ',',' '+$80                             ; used in report line.
 ;; copyright
-L1539:  DEFB    $7F                                     ; copyright
-        DEFM    " 1982 Sinclair Research Lt"
-        DEFB    'd'+$80
+L1539:  DEFB    $20                                     ; copyright
+        DEFM    "                          "
+        DEFB    ' '+$80
 
 
 ; -------------
@@ -18934,6 +18939,7 @@ L386C:  DEFB    $38             ;;end-calc              last value is 1 or 0.
 ; ---------------------
 
 ;; spare
+ org $386E
 L386E:  DEFB    $FF, $FF        ;
 
 
@@ -19084,7 +19090,7 @@ L386E:  DEFB    $FF, $FF        ;
         DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
         DEFB    $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF;
 
- ORG $3D00
+
 
 ; -------------------------------
 ; THE 'ZX SPECTRUM CHARACTER SET'
@@ -19644,16 +19650,16 @@ L3D00:
   DB 024 ;    **   
   DB 024 ;    **   
   ; ----------------     
-  DB 0,0,0,0,0,0,0,0 ; Space Again
+  DB 000 ;       UNDERSCORE  
+  DB 000 ;         
+  DB 000 ;         
+  DB 000 ;         
+  DB 000 ;         
+  DB 000 ;         
+  DB 000 ;         
+  DB 255 ; ********
   ; ---------------- 
-;  DB 012 ;     **  
-;  DB 018 ;    *  * 
-;  DB 048 ;   **    
-;  DB 124 ;  *****  
-;  DB 048 ;   **    
-;  DB 098 ;  **   * 
-;  DB 252 ; ******  
-;  DB 000 ;  
+ 
   ; ---------------- 
   DB 024 ;    **   
   DB 062 ;   ***** 
@@ -19915,7 +19921,8 @@ L3D00:
 ; ------------------ 
   DB %00111100, %01000010,%10011001,%10100001,%10100001,%10011001,%01000010,%00111100
 ; ------------------ 
-  SAVEBIN "ZXBootRom.rom",0,$4000
+  
+;  SAVEBIN "ZXBootRom.rom",0,$4000
   
 ; Acknowledgements
 ; -----------------
