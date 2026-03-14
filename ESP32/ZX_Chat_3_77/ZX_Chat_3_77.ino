@@ -886,7 +886,7 @@ void loop() {
       case 234:
         {
           // Computer asks for user list, first page.
-          // we send a max of 12 users in one long string
+          // we send a max of 14 users in one long string
           userpageCount = 0;
           String ul1 = userPages[userpageCount];
 

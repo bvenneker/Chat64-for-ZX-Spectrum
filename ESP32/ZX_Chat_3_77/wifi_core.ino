@@ -24,6 +24,7 @@ String myLocalIp = "0.0.0.0";
 volatile unsigned long messageIds[] = { 0, 0 };
 volatile unsigned long tempMessageIds[] = { 0, 0 };
 volatile unsigned long lastprivmsg = 0;
+volatile unsigned long last_up_refresh = millis() + 5000;
 String msgtype = "public";  // do not change this!
 String users = "";          // a list of all users on this server.
 volatile bool updateUserlist = false;
@@ -34,9 +35,9 @@ volatile bool getMessage = false;
 volatile bool pastMatrix = false;
 volatile bool aboutToReset = false;
 volatile bool sendingMessage = false;
-String userPages[20];
+String userPages[40]; // 40 x 14 = 560 users supported
 String romVersion = "0.0";
-String newVersions ="";
+String newVersions = "";
 MessageBufferHandle_t commandBuffer;
 MessageBufferHandle_t responseBuffer;
 bool isWifiCoreConnected = false;
@@ -129,7 +130,10 @@ void get_full_userlist() {
   for (int p = 0; p < 20; p++) {
     userPages[p] = getUserList(p);
     char firstchar = userPages[p].charAt(0);
-    if (int(firstchar) != 22 ) userPages[p] = "";
+    if (int(firstchar) != 22) {
+      userPages[p] = "";
+      last_up_refresh = millis() + 25000; // try again sooner
+    }
   }
 }
 
@@ -244,7 +248,7 @@ void ConnectivityCheck() {
 void WifiCoreLoop(void* parameter) {
   WiFiCommandMessage commandMessage;
   WiFiResponseMessage responseMessage;
-  unsigned long last_up_refresh = millis() + 5000;
+  last_up_refresh = millis() + 5000;
   unsigned long heartbeat = millis();
   bool refreshUserPages = true;
 
@@ -304,19 +308,19 @@ void WifiCoreLoop(void* parameter) {
 
     isWifiCoreConnected = WiFi.isConnected();
     if (!isWifiCoreConnected) {
-      myLocalIp="0.0.0.0";
+      myLocalIp = "0.0.0.0";
       if (millis() > lastWifiBegin + 7000) {
-        lastWifiBegin=millis();
+        lastWifiBegin = millis();
 #ifdef debug
-        Serial.println("Connecting to WiFi again");         
+        Serial.println("Connecting to WiFi again");
 #endif
         WiFi.mode(WIFI_STA);
         WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE, INADDR_NONE);
-        WiFi.begin(ssid, password);  
+        WiFi.begin(ssid, password);
       }
       continue;
-    } 
-    myLocalIp=WiFi.localIP().toString();
+    }
+    myLocalIp = WiFi.localIP().toString();
 
     if (!getMessage) {                     // this is a wait loop
       if (millis() > heartbeat + 25000) {  // while we do nothing we send a heartbeat signal to the server
@@ -363,13 +367,13 @@ void WifiCoreLoop(void* parameter) {
     responseTime = millis() - responseTime;
     if (responseTime > 10000) softReset();
 #ifdef debug
-    //Serial.print("http POST took: ");
-    //Serial.print(responseTime);
-    //Serial.println(" ms.");
-    //Serial.print("Response code=");
-    //Serial.println(httpResponseCode);
+      //Serial.print("http POST took: ");
+      //Serial.print(responseTime);
+      //Serial.println(" ms.");
+      //Serial.print("Response code=");
+      //Serial.println(httpResponseCode);
 #endif
-    if (httpResponseCode == 200) {  // httpResponseCode should be 200
+    if (httpResponseCode == 200) {            // httpResponseCode should be 200
       String textOutput = httpb.getString();  // capture the response from the webpage (it's json)
       textOutput.trim();                      // trim the output
 
@@ -402,36 +406,36 @@ void softReset() {
   ESP.restart();
 }
 
-String UpdateAvailable(){
+String UpdateAvailable() {
   String serverName = "http://" + server + "/checkUpdateForZX48.php";
   WiFiClient client;
   HTTPClient http;
   http.begin(client, serverName);
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-  String httpRequestData = "regid=" + regID ;
+  String httpRequestData = "regid=" + regID;
   http.POST(httpRequestData);
   String result = "0";
   result = http.getString();
   result.trim();
-  
+
   http.end();
   client.stop();
   String thisVersion = String(uromVersion) + " " + String(SwVersion);
-  
-  if (result != thisVersion) {    
+
+  if (result != thisVersion) {
     return result;
   }
   return "";
 }
 
-void doUpdate(){
-    updateProgress(1);     
-    NetworkClient client;
-    httpUpdate.onStart(update_started);
-    httpUpdate.onEnd(update_finished);
-    httpUpdate.onProgress(update_progress);
-    httpUpdate.onError(update_error);
-    httpUpdate.update(client, "http://www.chat64.nl/update/ZX48_Chat.bin");    
+void doUpdate() {
+  updateProgress(1);
+  NetworkClient client;
+  httpUpdate.onStart(update_started);
+  httpUpdate.onEnd(update_finished);
+  httpUpdate.onProgress(update_progress);
+  httpUpdate.onError(update_error);
+  httpUpdate.update(client, "http://www.chat64.nl/update/ZX48_Chat.bin");
 }
 
 void update_started() {
@@ -444,9 +448,9 @@ void update_finished() {
 }
 
 void update_progress(int cur, int total) {
-  int p = map(cur,1,total,1,32);
+  int p = map(cur, 1, total, 1, 32);
   updateProgress(p);
-  if (p==32) delay(500);
+  if (p == 32) delay(500);
 }
 
 void update_error(int err) {
@@ -454,19 +458,18 @@ void update_error(int err) {
 }
 
 
-void updateProgress(int p){   
+void updateProgress(int p) {
   if (lastp == p) return;
   lastp = p;
   // send the byte
 
-  digitalWrite(RCLK,LOW);
-  shiftOut(oSdata,sclk2,MSBFIRST,p) ; 
-  digitalWrite(RCLK,HIGH);
+  digitalWrite(RCLK, LOW);
+  shiftOut(oSdata, sclk2, MSBFIRST, p);
+  digitalWrite(RCLK, HIGH);
 
   // trigger NMI
   digitalWrite(oBusNMI, 1);
-  delayMicroseconds(200); 
+  delayMicroseconds(200);
   digitalWrite(oBusNMI, 0);
-  delayMicroseconds(200); 
+  delayMicroseconds(200);
 }
-
