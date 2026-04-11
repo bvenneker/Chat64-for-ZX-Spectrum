@@ -29,7 +29,6 @@ extern volatile int msgbuffersize;
 extern volatile int haveMessage;
 extern volatile bool getMessage;
 extern String userPages[40]; // 40 x 14 = 560 users supported
-extern String romVersion;
 extern String newVersions;
 extern char multiMessageBufferPub[3500];
 extern char multiMessageBufferPriv[3500];

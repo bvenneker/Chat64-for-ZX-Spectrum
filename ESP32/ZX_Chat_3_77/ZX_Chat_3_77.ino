@@ -681,18 +681,6 @@ void loop() {
           // -----------------------------------------------------------------------------------------------------
           // start byte 245 = Computer checks if the Cartridge is connected at all.. or are we running in a simulator?
           // -----------------------------------------------------------------------------------------------------
-          // receive the ROM version number
-          receive_buffer_from_Bus(1);
-          char bns[inbuffersize + 1];
-          // filter out any unwanted bytes, keep only ./01234567890
-          for (int k = 0; k < inbuffersize; k++) {
-            if (inbuffer[k] < 45 or inbuffer[k] > 57) inbuffer[k] = 32;
-          }
-          strncpy(bns, inbuffer, inbuffersize + 1);
-          String ns = bns;
-          ns.replace(" ", "");
-          romVersion = ns;
-          // respond with byte 128 to tell the zxspectrum the cartridge is present
           sendByte(128);
           pastMatrix = true;
           getMessage = true;
@@ -1222,6 +1210,7 @@ void loadPrgfile() {
   Serial.println("Waiting for start signal");
   int i = 0;
   while (ch != 100) {  // wait for the computer to send byte 100
+    //Serial.println((int)ch);
     delay(10);
     if (i++ > 200) ESP.restart();
   }
@@ -1341,45 +1330,6 @@ void ready_to_receive(bool b) {
   else
     outByte(0);
   return;
-}
-
-
-uint8_t myShiftIn(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder) {
-  uint8_t value = 0;
-  uint8_t i;
-
-  for (i = 0; i < 8; ++i) {
-    digitalWrite(clockPin, HIGH);
-    delayMicroseconds(5);
-    //if (bitOrder == LSBFIRST)
-    //    value |= digitalRead(dataPin) << i;
-    //else
-    value |= digitalRead(dataPin) << (7 - i);
-    digitalWrite(clockPin, LOW);
-  }
-  return value;
-}
-
-
-void myShiftOut(uint8_t dataPin, uint8_t clockPin, uint8_t bitOrder, uint8_t val) {
-  uint8_t i;
-
-  digitalWrite(clockPin, LOW);
-
-  for (i = 0; i < 8; i++) {
-    if (bitOrder == LSBFIRST) {
-      digitalWrite(dataPin, val & 1);
-      val >>= 1;
-    } else {
-      digitalWrite(dataPin, (val & 128) != 0);
-      val <<= 1;
-    }
-
-    delayMicroseconds(10);
-    digitalWrite(clockPin, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(clockPin, LOW);
-  }
 }
 
 String urlEncode(const String &s)

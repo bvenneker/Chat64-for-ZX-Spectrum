@@ -36,7 +36,6 @@ volatile bool pastMatrix = false;
 volatile bool aboutToReset = false;
 volatile bool sendingMessage = false;
 String userPages[40]; // 40 x 14 = 560 users supported
-String romVersion = "0.0";
 String newVersions = "";
 MessageBufferHandle_t commandBuffer;
 MessageBufferHandle_t responseBuffer;
@@ -420,7 +419,7 @@ String UpdateAvailable() {
 
   http.end();
   client.stop();
-  String thisVersion = String(uromVersion) + " " + String(SwVersion);
+  String thisVersion = String(romVersion) + " " + String(SwVersion);
 
   if (result != thisVersion) {
     return result;

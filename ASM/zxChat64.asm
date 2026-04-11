@@ -29,7 +29,7 @@ SYMSHFT_Q = $C7                         ;
 ARROWUP   = $5e                         ;
 PIPE      = $7c                         ;
 STEP      = $cd                         ;
-BACKSLASH = $5C                         ;
+BACKSLASH = $2F                         ;
 ACCO      = $7B                         ;
 ACCC      = $7D                         ;
 TO        = $CC                         ;
@@ -150,14 +150,14 @@ cp_or                                   ; replace the OR with ]
   cp OR                                 ;
   jp nz, cp_then                        ;
   ld a, BRACC                           ;
-cp_then                                 ; replace THEN with }
+cp_then                                 ; replace THEN with ], not } for compatibility reasons
   cp THEN                               ;
   jp nz,cp_to                           ;
-  ld a, ACCC                            ;
-cp_to                                   ; replace TO with {
+  ld a, BRACC                           ;
+cp_to                                   ; replace TO with [, not { for compatibility reasons
   cp TO                                 ;
   jp nz,cp_step                         ;
-  ld a, ACCO                            ;
+  ld a, BRACO                           ;
 cp_step                                 ; replace STEP with /
   cp STEP                               ; 
   jp nz, cp_arrow_up                    ;
@@ -421,7 +421,7 @@ are_we_in_the_matrix:                   ;
                                         ;
   ld a, 253                             ; set tempbyte to 253
   ld (TEMPBYTE),a                       ;
-matrix_retry:
+matrix_retry:                           ; 
   ld a,(TEMPBYTE)
   cp 0
   jp z, matrix_exit
