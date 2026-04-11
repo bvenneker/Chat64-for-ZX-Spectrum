@@ -2858,7 +2858,7 @@ exit_nmi                                ;
 ; ---------------------------------------------------------------------
 ; Static text lines                      
 ; ---------------------------------------------------------------------
-VERSION:  .BYTE "3.83",128  // ALSO CHANGE VERSION IN COMMON.H, 
+VERSION:  .BYTE "3.84",128  // ALSO CHANGE VERSION IN COMMON.H, 
                             // AND ALSO CHANGE DATE IF NEEDED
                            
 NOCART: DB AT,5,5,INK,red,PAPER,0,BRIGHT,1,"Cartridge not installed",128
@@ -2933,8 +2933,8 @@ MLINE_MAIN6:   DB AT, 15,2,INK, cyan, BRIGHT,1,"[6] About this software",128
 MLINE_MAIN7:   DB AT, 17,2,INK, cyan, BRIGHT,1,"[7] Exit",128
 MLINE_SAVE:    DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Save Settings  ",128
 MLINE_CHANGE:  DB AT, 15,2,INK, cyan, BRIGHT,1,"[1] Change Settings",128
-MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.85     "
-VERSION_DATE:  DB AT, 0,27,"03/26",128
+MLINE_VERSION: DB AT, 0,0,INK,yellow,BRIGHT,1, "Version ROM x.xx, ESP 3.88     "
+VERSION_DATE:  DB AT, 0,27,"04/26",128
                                                                                                   
 sysmessage_update: DB AT,18,0,INVERSE,1,INK,green,BRIGHT,1,"New version available,          ",13,"press [symbol-shift] + Q        ",INVERSE,0,128
 
